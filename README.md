@@ -36,7 +36,7 @@ Every loop goes through five steps:
 | Private, your data under your control | One SQLite file on your machine; see [Your data](#your-data) |
 | Persistent memory | Goals, loops, people, the words each loop came from, history with undo, and every message check ([app/engine.py](backend/app/engine.py), [app/db.py](backend/app/db.py)). Hermes' own memory is off, so there's one source of truth. |
 | Reusable skills | Two Hermes skills ([hermes/skills/](backend/hermes/skills/)): `/check <message>` and `/briefing` on Telegram. The 8:00 cron job runs `briefing` too. |
-| Tools you choose | 17 MCP tools any MCP client can call ([app/mcp_tools.py](backend/app/mcp_tools.py)). Google, Tavily and Telegram are each opt-in. |
+| Tools you choose | 18 MCP tools any MCP client can call ([app/mcp_tools.py](backend/app/mcp_tools.py)). Google, Tavily and Telegram are each opt-in. |
 | Tasks across your daily workflows | Follow-up drafts, Gmail drafts, calendar events, web watch, loops closed by email replies, message checks. Anything that changes the outside world waits for your yes. |
 | NVIDIA open model | Nemotron 3 Super on Nebius Token Factory for every reasoning step ([app/llm.py](backend/app/llm.py)) |
 | Hermes Agent | Chat, Telegram and cron, with Troth's tools only ([hermes/config.example.yaml](backend/hermes/config.example.yaml)) |
@@ -129,7 +129,7 @@ flowchart LR
 ```
 
 - **Troth** (one Python process): FastAPI serves the dashboard, a REST API, and an MCP server at `/mcp/`. The continuity engine (`app/engine.py`) owns extraction, goal linking, dedup, the attention rules and storage.
-- **Hermes Agent** (second process) is the chat brain, for the dashboard chat, Telegram and the daily briefing. It decides when to save (`remember`) and when to answer from memory (`list_open_loops`, `needs_attention`, `list_goals`, `inspect_loop`, `resolve_loop`, `snooze_loop`). Proposals wait for your yes (`list_pending_actions`, `approve_action`, `reject_action`). With a Tavily key it can look things up (`web_lookup`) and watch a loop on the web (`watch_loop`); what it finds only becomes a proposal (`propose_loop_update`). With Google connected it proposes calendar events and Gmail drafts (`propose_calendar_event`, `propose_gmail_draft`), created only after your yes. For a suspicious message it calls `investigate`, which runs ScamGraph and waits up to 100 s; if the check takes longer, it answers with the dashboard link. When `remember` saves a loop about paying someone, Hermes offers the check and passes that loop's id, so the result stays with the loop. It runs in its own `continuum` profile, so your default Hermes setup is untouched. Its built-in terminal, file, web, browser and memory tools are off on every platform. It only has Troth's tools.
+- **Hermes Agent** (second process) is the chat brain, for the dashboard chat, Telegram and the daily briefing. It decides when to save (`remember`) and when to answer from memory (`list_open_loops`, `needs_attention`, `list_goals`, `inspect_loop`, `resolve_loop`, `snooze_loop`, and `edit_loop` to rename or correct one). Proposals wait for your yes (`list_pending_actions`, `approve_action`, `reject_action`). With a Tavily key it can look things up (`web_lookup`) and watch a loop on the web (`watch_loop`); what it finds only becomes a proposal (`propose_loop_update`). With Google connected it proposes calendar events and Gmail drafts (`propose_calendar_event`, `propose_gmail_draft`), created only after your yes. For a suspicious message it calls `investigate`, which runs ScamGraph and waits up to 100 s; if the check takes longer, it answers with the dashboard link. When `remember` saves a loop about paying someone, Hermes offers the check and passes that loop's id, so the result stays with the loop. It runs in its own `continuum` profile, so your default Hermes setup is untouched. Its built-in terminal, file, web, browser and memory tools are off on every platform. It only has Troth's tools.
 
 ### Why Hermes
 
@@ -217,7 +217,7 @@ Docs, tests, scripts and the UI build go live without a restart. Your `.env` and
 1. Create a VM: Debian 12, e2-small or larger, with **Allow HTTP traffic** and **Allow HTTPS traffic** ticked. Make its external IP static (VPC network → IP addresses → Promote to static).
 2. Use **SSH** in the console, then:
    ```bash
-   git clone https://github.com/ADAMAMZAR/rickrolled_nebiusxtavily.git ~/troth
+   git clone https://github.com/ADAMAMZAR/troth.git ~/troth
    cd ~/troth/backend && cp .env.example .env   # set NEBIUS_API_KEY, APP_PASSWORD, Telegram, Tavily
    ```
 3. Install [Hermes](https://hermes-agent.nousresearch.com), then run `bash ~/troth/backend/scripts/setup_server.sh`. It installs Troth, sets up Hermes, starts both as services and puts Caddy in front for HTTPS. The address is `https://<ip-with-dashes>.sslip.io`, or your own domain if you run it with `TROTH_DOMAIN=troth.example.com` and point the domain at the VM. It sets `PUBLIC_URL` in `.env` to match.

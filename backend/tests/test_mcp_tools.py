@@ -91,7 +91,7 @@ def test_lists_exactly_the_tools_hermes_includes(mcp: MCP) -> None:
     names = {t["name"] for t in mcp.rpc("tools/list")["tools"]}
     assert names == {
         "remember", "list_open_loops", "needs_attention", "list_goals", "inspect_loop", "resolve_loop", "snooze_loop",
-        "list_pending_actions", "approve_action", "reject_action", "web_lookup", "propose_loop_update", "watch_loop",
+        "edit_loop", "list_pending_actions", "approve_action", "reject_action", "web_lookup", "propose_loop_update", "watch_loop",
         "set_person_email", "propose_calendar_event", "propose_gmail_draft", "investigate",
     }
     include = yaml.safe_load(HERMES_CONFIG.read_text(encoding="utf-8"))["mcp_servers"]["continuum"]["tools"]["include"]
@@ -199,6 +199,20 @@ def test_resolve_from_chat_is_undoable(mcp: MCP, llm: FakeLLM) -> None:
     mcp.call("resolve_loop", loop_id=loop_id)
     items = mcp.http.get(f"/api/activity?loop_id={loop_id}").json()
     assert ("resolved", "chat", True) in {(a["action"], a["by"], a["can_undo"]) for a in items}
+
+
+def test_edit_from_chat_is_undoable(mcp: MCP, llm: FakeLLM) -> None:
+    """A rename, or who or what a loop is: `remember` can't change a title (seen on Telegram 2026-10-26)."""
+    loop_id = remember_demo(mcp, llm)["new_loops"][1]["id"]  # the task "Finish portfolio"
+    edited = mcp.call("edit_loop", loop_id=loop_id, title="Finish portfolio site", kind="commitment", person="Sarah")
+    assert {k: edited["edited"][k] for k in ("title", "kind", "promised_to")} == {
+        "title": "Finish portfolio site", "kind": "commitment", "promised_to": "Sarah"}
+    [edit] = [a for a in mcp.http.get(f"/api/activity?loop_id={loop_id}").json() if a["by"] == "user"]
+    assert edit["can_undo"]
+    assert mcp.http.post(f"/api/activity/{edit['id']}/undo").json()["title"] == "Finish portfolio"
+
+    assert "Nothing to change" in mcp.call("edit_loop", loop_id=loop_id)["error"]
+    assert "error" in mcp.call("edit_loop", loop_id=loop_id, kind="deadline")
 
 
 def test_list_and_approve_pending_action(mcp: MCP, llm: FakeLLM, db_url: str) -> None:
