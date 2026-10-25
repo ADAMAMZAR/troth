@@ -157,6 +157,9 @@ def test_from_chat_and_dashboard(db_url: str, tmp_path: Path, monkeypatch: pytes
 
         monkeypatch.setattr(settings, "google_token_file", str(tmp_path / "missing.json"))
         assert "Google isn't connected" in mcp.call("propose_gmail_draft", loop_id=loop_id, to=SARAH, subject="s", body="b")["error"]
+        # a reminder at a set time: the model said "connect Google in Settings", which a server can't (2026-10-26)
+        no_event = mcp.call("propose_calendar_event", loop_id=loop_id, title="Submit", start="22:30")["error"]
+        assert "can't message the user at a set time" in no_event and "8:00 briefing" in no_event
 
 
 def test_google_settings_routes(db_url: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

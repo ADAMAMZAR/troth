@@ -8,7 +8,7 @@ import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from mcp.server.mcpserver import MCPServer
@@ -20,7 +20,7 @@ from sqlmodel import Session
 from app import engine as eng
 from app import investigation as inv
 from app.config import settings
-from app.connectors.google import GoogleClient
+from app.connectors.google import GoogleClient, connected
 from app.connectors.tavily import TavilyClient, TavilyError
 from app.db import ActivityBy, Goal, InvestigationStatus, LoopKind, LoopStatus, OpenLoop, Person
 from app.extraction import Completer, ExtractionError
@@ -28,6 +28,10 @@ from app.llm import LLMError
 
 INVESTIGATE_WAIT = 100
 TIME = re.compile(r"\d{1,2}:\d{2}")
+# Said instead of "connect Google": on a server that's impossible, and the model passed it on as the answer.
+NO_CALENDAR = ("Google isn't connected, so no calendar event and no reminder at that time: Troth can't message the user "
+               "at a set time. Tell the user so, and that the 8:00 briefing lists the loop the day before it's due "
+               "and on the day; a phone alarm covers the exact time.")
 
 
 def build_mcp(
@@ -115,6 +119,21 @@ def build_mcp(
             day = eng.parse_day(until, eng.local_now().date())
             loop = eng.snooze_loop(s, _uuid(loop_id), day, by=ActivityBy.chat)
             return {"snoozed": loop.title, "until": f"{day:%a %Y-%m-%d}"}
+
+    @mcp.tool()
+    def edit_loop(
+        loop_id: str, title: str | None = None, person: str | None = None,
+        kind: Literal["task", "commitment", "waiting"] | None = None,
+    ) -> dict[str, Any]:
+        """Correct one loop when the user asks: rename it ("change it to X", "call it X"), who it's with
+        ("it's Dr. Tan, not Dr. Lim"; "" removes the person) or its kind ("commitment" is a promise to someone,
+        "waiting" is someone owing the user). Pass only what changes; the user can undo it in the dashboard.
+        A new date, progress or "it's done" goes to remember instead. Get the id from list_open_loops."""
+        changes = {k: v for k, v in {"title": title, "waiting_on": person, "kind": kind}.items() if v is not None}
+        if not changes:
+            raise ToolError("Nothing to change: give a title, person or kind.")
+        with session() as s:
+            return {"edited": _loop(s, eng.edit_loop(s, _uuid(loop_id), changes))}
 
     @mcp.tool()
     def list_goals() -> dict[str, Any]:
@@ -211,6 +230,8 @@ def build_mcp(
         (no end = one hour). `description` holds the details the user gave: company, role, people, links.
         If the date or time is unclear, ask the user, never guess.
         Nothing is created until the user says yes, so tell them it waits for their OK."""
+        if not connected(settings):
+            raise ToolError(NO_CALENDAR)
         with session() as s:
             loop_uuid = _uuid(loop_id)
             due = eng.get_loop(s, loop_uuid).loop.due

@@ -1,6 +1,6 @@
 # Troth — Plan: see what your promises depend on
 
-**Status:** C1–C3 plus a "Needs: …" line in loop detail built 2026-10-19 (decisions in §7, results in §6 and §10). Still to check live: Telegram and Hermes. C4's chain editor, loop editing (C4), export and delete-everything (C5) wait. D3 is already built.
+**Status:** C1–C3 plus a "Needs: …" line in loop detail built 2026-10-19 (decisions in §7, results in §6 and §10). Checked live through Hermes on the VM; still to check: Telegram. Loop editing (C4) built: dashboard with undo 2026-10-19, chat (`edit_loop`) 2026-10-26. C4's chain editor, export and delete-everything (C5) wait. D3 is already built.
 
 **Source:** [Troth_AI_Moat_Strategy.md](Troth_AI_Moat_Strategy.md), reviewed and mapped onto Troth. The product keeps the name Troth (renamed from Continuum on 2026-10-11), its users and its stack.
 
