@@ -212,7 +212,7 @@ CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) tests every push. When
 1. Create a VM: Debian 12, e2-small or larger, with **Allow HTTP traffic** and **Allow HTTPS traffic** ticked. Make its external IP static (VPC network → IP addresses → Promote to static).
 2. Use **SSH** in the console, then:
    ```bash
-   git clone https://github.com/ADAMAMZAR/rickrolled_nebiusxtavily.git ~/troth
+   git clone https://github.com/ADAMAMZAR/troth.git ~/troth
    cd ~/troth/backend && cp .env.example .env   # set NEBIUS_API_KEY, APP_PASSWORD, Telegram, Tavily
    ```
 3. Install [Hermes](https://hermes-agent.nousresearch.com), then run `bash ~/troth/backend/scripts/setup_server.sh`. It installs Troth, sets up Hermes, starts both as services and puts Caddy in front for HTTPS. The address is `https://<ip-with-dashes>.sslip.io`, or your own domain if you run it with `TROTH_DOMAIN=troth.example.com` and point the domain at the VM. It sets `PUBLIC_URL` in `.env` to match.

@@ -142,10 +142,10 @@ Each tier works on its own, so you can stop at any tier. No schema change: `Inve
   - *it never asked when the details were already given;*
   - *after the bare-time change, 4 of 6 events used it. Other runs still sometimes write a wrong full date, but the approval line shows the weekday.*
 
-### P3 Always on ([issue #4](https://github.com/ADAMAMZAR/rickrolled_nebiusxtavily/issues/4), Phase 4 §11)
+### P3 Always on ([issue #4](https://github.com/ADAMAMZAR/troth/issues/4), Phase 4 §11)
 
 11. Run Troth on a GCP Compute Engine VM (decision 2026-10-13: dropped the Nebius VM; 2026-10-19: GCP instead of Oracle Cloud, deployed by CI, see README): uvicorn and `hermes -p continuum gateway run` as services, Telegram on, the briefing and sync cron jobs, `APP_PASSWORD`, `PUBLIC_URL`, a fresh DB (Neon Postgres) and Google off. Then remove the README limit "only work while Hermes' gateway is running on your machine".
-    *Done 2026-10-19: VM `troth` (GCP, us-central1-a) runs `troth` and `hermes` as services behind Caddy at https://136-116-161-34.sslip.io, with `APP_PASSWORD`, `PUBLIC_URL`, Neon Postgres and Google off. Telegram is on; the `briefing` (8:00) and `sync` (every 10 min) cron jobs run there (last runs ok). CI deploys `main`.*
+    *Done 2026-10-19: VM `troth` (GCP, us-central1-a) runs `troth` and `hermes` as services behind Caddy at https://136-116-161-34.sslip.io, with `APP_PASSWORD`, `PUBLIC_URL`, Neon Postgres and Google off. Telegram is on; the `briefing` (8:00) and `sync` (every 10 min) cron jobs run there (last runs ok). CI deploys `main`. 2026-10-26: moved to https://troth-nebius-nvidia.duckdns.org (DuckDNS, static IP `troth-ip`, `TROTH_DOMAIN` re-run of `setup_server.sh`).*
 
 ### P4 Stretch: Hermes inside OpenShell (only after the video)
 
@@ -247,11 +247,11 @@ Notes apps keep what you wrote, and chatbots forget it by the next session. A pe
 
 **How it works**
 
-- **Hermes Agent** is the assistant: dashboard chat, Telegram, cron jobs, and two reusable skills, `/check` and `/briefing`. It calls Troth through 17 MCP tools and has nothing else: no terminal, files or browser.
+- **Hermes Agent** is the assistant: dashboard chat, Telegram, cron jobs, and two reusable skills, `/check` and `/briefing`. It calls Troth through 18 MCP tools and has nothing else: no terminal, files or browser.
 - **NVIDIA Nemotron 3 Super on Nebius Token Factory** does every reasoning step: the agent, loop extraction, and ScamGraph's extraction, research plan, page checks and summary. Screenshots are read by Gemma 3 on the same endpoint, because no Nemotron model there reads images.
 - **Tavily** Search and Extract gather the evidence. Our server never opens a suspicious link itself.
 - **Your data:** one database (Neon Postgres on the server, a SQLite file on your own machine). Hermes' own memory is off, and logs hold ids and counts, never message text.
 
 **Built with:** NVIDIA Nemotron, Nebius Token Factory, Hermes Agent, Tavily, Python, FastAPI, MCP, SQLite, Cytoscape.js, Telegram, Gmail and Google Calendar APIs.
 
-**Links:** demo https://136-116-161-34.sslip.io (behind `APP_PASSWORD`: give judges the password) · video (§5) · repo with MIT license and README.
+**Links:** demo https://troth-nebius-nvidia.duckdns.org (behind `APP_PASSWORD`: give judges the password) · video (§5) · repo with MIT license and README.

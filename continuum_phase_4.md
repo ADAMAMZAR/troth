@@ -2,7 +2,7 @@
 
 **Needs:** §0 settled (2026-10-07, except §0.2). Phase 3's open boxes are live checks only; see §0.1.
 
-**Status 2026-10-08:** code done (H0–H4). The open §15 boxes (Telegram check, deploy, demo) are run by others under [issue #4](https://github.com/ADAMAMZAR/rickrolled_nebiusxtavily/issues/4).
+**Status 2026-10-08:** code done (H0–H4). The open §15 boxes (Telegram check, deploy, demo) are run by others under [issue #4](https://github.com/ADAMAMZAR/troth/issues/4).
 
 **Source plan:** *ScamGraph Hackathon Business Case & Delivery Plan* (PDF, team working plan). This spec adapts it to this codebase. Where they differ, this spec wins; §3 lists each difference and why.
 
