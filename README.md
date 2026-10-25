@@ -202,7 +202,7 @@ To try the UI with sample data, set `DATABASE_URL=sqlite:///./data/seed.db`, the
 
 ### Running on a server
 
-Set `APP_PASSWORD` in `.env`: every page and `/api` then asks for it (any username), and `/mcp` only answers the same machine, where Hermes runs. Changes through `/api` also need the header `X-Troth: 1`, which Troth's pages send, so another website can't make changes in your name. Set `PUBLIC_URL` to the address people open, so chat links point there. Use a fresh `DATABASE_URL`, and leave Google off: its sign-in only works on your own computer.
+Set `APP_PASSWORD` in `.env`: every page and `/api` then asks for it (any username), and `/mcp` only answers the same machine, where Hermes runs. Changes through `/api` also need the header `X-Troth: 1`, which Troth's pages send, so another website can't make changes in your name. Set `PUBLIC_URL` to the address people open, so chat links point there. Use a fresh `DATABASE_URL`. Google's sign-in only opens on your own computer: to use Google on a server, sign in there and copy the token over ([A demo for judges](#a-demo-for-judges) shows how).
 
 ### Deploy to GCP Compute Engine
 
@@ -250,7 +250,14 @@ On the VM, give the demo its own database and password, so judges never see your
    ```
    0 19 * * * cd ~/troth/backend && .venv/bin/python scripts/seed_demo.py --reset >> data/seed_demo.log 2>&1
    ```
-Google can't be connected on the VM (its sign-in only works on your own computer), so email shows only in the sample data.
+Telegram on this VM writes into the same database, so the nightly reset clears your own loops there too.
+
+To show Gmail and Calendar too, connect a Google account made for the demo, never your own: judges see what it reads.
+1. Publish the Google app (**Google Auth Platform → Audience → Publish app**), or the connection ends after 7 days. Sign-in then shows *"Google hasn't verified this app"*: Advanced → continue.
+2. On your own computer, connect the demo account in **Settings → Connect Google**, then copy the token to the VM: `scp backend/data/google_token.json <vm-user>@<vm-ip>:troth/backend/data/`.
+3. Delete the local `backend/data/google_token.json`. Don't use **Disconnect**: it revokes the VM's copy too.
+
+The sync job then reads the demo inbox, and approved drafts and events land in its Gmail and Calendar.
 
 ### Telegram (optional)
 
@@ -304,7 +311,7 @@ Lets Troth read email from people you're waiting on and, with your yes, save Gma
 
 To check the connection on its own: `python scripts/google_gate.py someone@example.com` lists the last 5 emails from that address, saves a test draft (not sent) and creates a test event tomorrow at 10:00. Delete both afterwards.
 
-Access asked for: read Gmail, write drafts, write calendar events. The token is saved in `backend/data/google_token.json` (gitignored). While the Google app is in testing, Google ends the connection after 7 days: connect again in Settings. **Disconnect** in Settings revokes access and deletes the token.
+Access asked for: read Gmail, write drafts, write calendar events. The token is saved in `backend/data/google_token.json` (gitignored). While the Google app is in testing, Google ends the connection after 7 days: connect again in Settings, or publish the app (Audience → Publish app). **Disconnect** in Settings revokes access and deletes the token.
 
 ## Tests
 
@@ -339,7 +346,8 @@ The live suite runs the acceptance inputs against real Nemotron, e.g. "Alex said
 - **Dedup is exact-match** on normalized title + person, plus giving the model the existing loops. Reworded duplicates can slip through.
 - **Hermes' standalone gateway** (`gateway.standalone: true`) is a shim Hermes marks as temporary. `hermes/config.example.yaml` describes the fallback.
 - Goals are marked done from the dashboard only, not by chat.
-- Chat replies take a few seconds (one Nemotron tool call plus the reply, ~3–9 s in testing).
+- **Replies take time**, because Nemotron reasons before it answers. Measured 2026-10-26: a question takes 2–5 s, saving a message 10–20 s (most of it one extraction call, about 85% of whose output is reasoning), a message check 1–2 minutes.
+- **The deployed demo is slower still.** Its database (Neon, Singapore) is far from the VM (Iowa): about 0.6 s per query. The VM is an e2-micro (1 GB) and swaps, so the 8:00 briefing has taken up to 3.6 minutes. Put the database in the VM's region, or use SQLite on the VM, and use e2-small or larger.
 - Run on your own computer, Telegram and the daily briefing only work while it's on. The [GCP deploy](#deploy-to-gcp-compute-engine) keeps them running.
 - Scheduled jobs (the daily briefing, web watch) only run while the gateway is running. A briefing missed while it was off is sent once when the gateway starts again, so it can arrive late.
 - **Check who's asking** shows on loops whose words mention money, a link or an account (a keyword test). Any message can still be checked on **Check a message**.
