@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import logging
 import secrets
@@ -26,9 +27,9 @@ from app.connectors.tavily import TavilyClient
 from app.db import (
     ActionStatus, Activity, Goal, LoopKind, LoopStatus, OpenLoop, PendingAction, Person, Source, create_db_engine,
 )
-from app.extraction import Completer
+from app.extraction import PASTE_NOTE, Completer, ExtractionError
 from app.hermes import HermesClient, HermesError, HermesReply
-from app.llm import LLMClient
+from app.llm import LLMClient, LLMError
 from app.mcp_tools import build_mcp
 
 log = logging.getLogger("continuum.api")
@@ -37,11 +38,16 @@ STATIC = Path(__file__).parent / "static"
 
 class Agent(Protocol):
     def ask(self, message: str, conversation: str = ...) -> HermesReply: ...
+    def running(self) -> bool: ...
 
 
 class ChatIn(BaseModel):
     message: str = Field(min_length=1, max_length=8000)
     conversation: str = Field(default="continuum", max_length=100)  # the UI sends one per page load
+
+
+class MessageIn(BaseModel):
+    text: str = Field(min_length=1, max_length=8000)
 
 
 class SnoozeIn(BaseModel):
@@ -75,6 +81,31 @@ def default_hermes() -> HermesClient:
 @cache
 def default_web() -> TavilyClient:
     return TavilyClient(settings)
+
+
+AUTO_SYNC_FIRST = 30  # seconds after start before the first automatic check
+
+
+async def auto_sync(db: Any, get_llm: Callable[[], Completer], get_google: Callable[[], GoogleClient],
+                    get_web: Callable[[], TavilyClient]) -> None:
+    """AUTO_SYNC_MINUTES: scripts/sync.py while Troth runs, for people without Telegram. What changed shows in the
+    dashboard. The lines hold message text, so only their count is logged."""
+    await asyncio.sleep(AUTO_SYNC_FIRST)
+    while True:
+        await asyncio.to_thread(_sync_once, db, get_llm, get_google, get_web)
+        await asyncio.sleep(settings.auto_sync_minutes * 60)
+
+
+def _sync_once(db: Any, get_llm: Callable[[], Completer], get_google: Callable[[], GoogleClient],
+               get_web: Callable[[], TavilyClient]) -> None:
+    try:
+        web = get_web() if eng.web_enabled() else None
+        with Session(db) as session:
+            lines = eng.run_sync(session, get_llm(), get_google if google.connected(settings) else None,
+                                 (lambda q: web.search(q, time_range="week").results) if web else None)
+        log.info("auto_sync_done lines=%d", len(lines))
+    except Exception as e:  # the next run tries again; the type is enough to look into it (details may hold email text)
+        log.warning("auto_sync_failed error=%s", type(e).__name__)
 
 
 def get_session(request: Request) -> Iterator[Session]:
@@ -166,8 +197,12 @@ def create_app(
         app.state.db = create_db_engine(database_url or settings.database_url)
         with Session(app.state.db) as session:
             inv.fail_interrupted(session)
+        sync = (asyncio.create_task(auto_sync(app.state.db, get_llm, get_google, get_web))
+                if settings.auto_sync_minutes > 0 else None)
         async with mcp.session_manager.run():
             yield
+        if sync is not None:
+            sync.cancel()
         app.state.db.dispose()
 
     app = FastAPI(title="Troth", lifespan=lifespan)
@@ -241,6 +276,22 @@ def create_app(
         log.info("chat_ok tools=%s", ",".join(reply.tools_called) or "none")
         return {"reply": reply.text}
 
+    @app.get("/api/chat/status")
+    def chat_status() -> dict[str, bool]:
+        try:
+            return {"running": get_hermes().running()}
+        except HermesError:  # no HERMES_API_KEY: Hermes was never set up here
+            return {"running": False}
+
+    @app.post("/api/messages", response_model=None)
+    def save_message(body: MessageIn, session: Session = Depends(get_session)) -> dict[str, str] | JSONResponse:
+        """The dashboard's Paste box: what chat's `remember` does, without Hermes (e.g. where it isn't installed)."""
+        try:
+            changes = eng.process_message(session, get_llm(), body.text, note=PASTE_NOTE)
+        except (ExtractionError, LLMError) as e:
+            return error(503, "llm_unavailable", f"Couldn't save that: {e}")
+        return {"reply": eng.describe_saved(changes)}
+
     @app.get("/api/goals")
     def goals(session: Session = Depends(get_session)) -> list[dict[str, Any]]:
         return [{**g.goal.model_dump(mode="json"), "open_loops": g.open_loops} for g in eng.list_goals(session)]
@@ -273,7 +324,18 @@ def create_app(
         detail = eng.get_loop(session, loop_id)
         needs, needed_by = eng.loop_links(session, loop_id)
         return {**loop_out(session, detail.loop), "source": detail.source.model_dump(mode="json"), "quote": detail.quote,
-                "needs": [link_out(l) for l in needs], "needed_by": [link_out(l) for l in needed_by]}
+                "needs": [link_out(l) for l in needs], "needed_by": [link_out(l) for l in needed_by],
+                "check_id": eng.latest_check(session, loop_id)}
+
+    @app.put("/api/loops/{loop_id}/needs/{needs_id}", status_code=204)
+    def add_need(loop_id: UUID, needs_id: UUID, session: Session = Depends(get_session)) -> Response:
+        eng.add_need(session, loop_id, needs_id)
+        return Response(status_code=204)
+
+    @app.delete("/api/loops/{loop_id}/needs/{needs_id}", status_code=204)
+    def remove_need(loop_id: UUID, needs_id: UUID, session: Session = Depends(get_session)) -> Response:
+        eng.remove_need(session, loop_id, needs_id)
+        return Response(status_code=204)
 
     @app.post("/api/loops/{loop_id}/resolve")
     def resolve(loop_id: UUID, session: Session = Depends(get_session)) -> dict[str, Any]:
@@ -385,6 +447,9 @@ def create_app(
             "connected": google.connected(settings),
             "set_up": Path(settings.google_client_secret_file).exists(),  # the OAuth client file is there
             "last_sync": eng.get_setting(session, eng.LAST_EMAIL_SYNC),
+            "sync_error": eng.get_setting(session, eng.LAST_SYNC_ERROR),  # cleared by the next good check
+            "auto_sync_minutes": settings.auto_sync_minutes,
+            "new_senders": settings.email_new_senders,
         }
 
     @app.post("/api/google/connect")
@@ -403,6 +468,16 @@ def create_app(
     @app.post("/api/google/forget")
     def forget_email(session: Session = Depends(get_session)) -> dict[str, int]:
         return {"forgotten": eng.forget_email_data(session)}
+
+    @app.get("/api/export")
+    def export(session: Session = Depends(get_session)) -> JSONResponse:
+        """Settings: Export my data. Downloads as one JSON file."""
+        name = f"troth-export-{eng.local_now():%Y-%m-%d}.json"
+        return JSONResponse(eng.export_data(session), headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+    @app.post("/api/data/forget")
+    def delete_everything(session: Session = Depends(get_session)) -> dict[str, int]:
+        return {"deleted": eng.delete_everything(session)}
 
     app.mount("/", Pages(directory=STATIC, html=True), name="ui")
     return app

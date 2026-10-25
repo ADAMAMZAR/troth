@@ -42,6 +42,32 @@ def test_messages_from_one_sender() -> None:
     assert email.text == "Subject: Interview\n\nGreat news, we'd like to interview you"  # no plain-text part: snippet
 
 
+def test_new_mail_is_mail_people_wrote() -> None:
+    """Sync reads it from people Troth doesn't follow yet: the eval's email sample is chosen the same way (§15)."""
+    def headers(sender: str, *extra: tuple[str, str]) -> list[dict[str, str]]:
+        return [{"name": "From", "value": sender}, {"name": "Subject", "value": "Hi"}, *({"name": n, "value": v} for n, v in extra)]
+
+    mail = {
+        "m1": headers('"Pearl  Li" <Pearl@Revolab.com>'),
+        "m2": headers("FPT News <news@fpt.com>", ("List-Unsubscribe", "<mailto:out@fpt.com>")),
+        "m3": headers("Luma <no-reply@luma.com>"),
+        "m4": headers("Digest <digest@x.com>", ("Precedence", "bulk")),
+    }
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path.endswith("/messages"):
+            return httpx.Response(200, json={"messages": [{"id": i} for i in mail]})
+        i = request.url.path.rsplit("/", 1)[1]
+        return httpx.Response(200, json={**MESSAGE, "id": i, "payload": {"headers": mail[i]}})
+
+    [email] = google(handler).new_mail(after=datetime.fromtimestamp(1789990000))
+    assert seen[0].url.params["q"] == ("-from:me -category:promotions -category:social -category:updates -category:forums"
+                                       " after:1789990000")
+    assert (email.id, email.from_address, email.from_name) == ("m1", "pearl@revolab.com", "Pearl Li")
+
+
 def b64(text: str) -> str:
     return base64.urlsafe_b64encode(text.encode()).decode()
 
@@ -183,3 +209,22 @@ def test_logs_never_hold_the_gmail_query(caplog: pytest.LogCaptureFixture) -> No
         logging.getLogger("httpx").info('HTTP Request: %s %s "%s %d %s"', "GET", url, "HTTP/1.1", 200, "OK")
     assert "gmail.googleapis.com/gmail/v1/users/me/messages" in caplog.text
     assert "sarah" not in caplog.text and "q=" not in caplog.text
+
+
+def test_raw_messages_page_through_a_search() -> None:
+    """The eval's mail sample (eval_import.py gmail): whole messages, every page, up to the limit."""
+    seen: list[httpx.Request] = []
+    pages = {None: {"messages": [{"id": "m1"}, {"id": "m2"}], "nextPageToken": "p2"}, "p2": {"messages": [{"id": "m3"}]}}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path.endswith("/messages"):
+            return httpx.Response(200, json=pages[request.url.params.get("pageToken")])
+        mid = request.url.path.rsplit("/", 1)[1]
+        raw = base64.urlsafe_b64encode(f"Subject: {mid}\r\n\r\nHi".encode()).decode().rstrip("=")  # Gmail drops padding
+        return httpx.Response(200, json={"id": mid, "raw": raw})
+
+    got = google(handler).raw_messages("after:1 -from:me", limit=10)
+    assert got == [b"Subject: m1\r\n\r\nHi", b"Subject: m2\r\n\r\nHi", b"Subject: m3\r\n\r\nHi"]
+    assert seen[0].url.params["q"] == "after:1 -from:me" and seen[2].url.params["format"] == "raw"  # both pages first
+    assert len(google(handler).raw_messages("q", limit=2)) == 2  # stops at the limit

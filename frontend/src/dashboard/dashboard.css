@@ -57,6 +57,17 @@ li.fresh > .row-btn .title b::after {
 .history ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s1); font-size: var(--fs-small); color: var(--muted); }
 .history li { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
 .history .said { display: block; font-style: italic; overflow-wrap: anywhere; }
+/* what a loop depends on: needs -> this -> needed by, one column of plain entries with arrows */
+.chain-steps { display: grid; justify-items: start; gap: var(--s1); font-size: var(--fs-small); }
+.chain-steps ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s1); }
+.chain-steps li { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--s2); }
+.chain-label { color: var(--muted); font-size: var(--fs-cap); font-weight: 650; }
+.chain-steps .arrow { color: var(--muted); line-height: 1; }
+.chain-this { font-size: var(--fs-body); }
+.settled-text { color: var(--muted); }
+.unlink { border: 0; background: none; padding: 0 4px; color: var(--muted); font-size: var(--fs-body); line-height: 1; cursor: pointer; }
+.unlink:hover { color: var(--red); }
+.chain-add { display: block; margin-top: var(--s2); max-width: 320px; }
 .field { display: grid; gap: var(--s2); }
 .field .row { display: flex; gap: var(--s2); }
 .edit label { display: grid; gap: var(--s1); font-size: var(--fs-small); color: var(--muted); }
@@ -81,6 +92,8 @@ li.fresh > .row-btn .title b::after {
 .msg.error { align-self: flex-start; color: var(--red); border: 1px solid color-mix(in oklab, var(--red) 40%, transparent); }
 .msg .copy { display: flex; margin-top: var(--s2); }
 .writing { color: var(--muted); font-size: var(--fs-small); }
+.mode-pick { gap: var(--s3); }
+.mode-pick .link-btn[aria-pressed="true"] { color: var(--ink); text-decoration: none; cursor: default; }
 .composer { display: flex; gap: var(--s2); align-items: flex-end; padding-top: var(--s3); border-top: 1px solid var(--rule); }
 .composer textarea { resize: none; max-height: 9.5em; }
 
@@ -88,6 +101,7 @@ li.fresh > .row-btn .title b::after {
 .settings-pop h3 { font-size: var(--fs-small); font-weight: 750; }
 .settings-pop h3:not(:first-child) { margin-top: var(--s3); padding-top: var(--s3); border-top: 1px solid var(--rule); }
 .ok { color: var(--blue); font-weight: 650; }
+.row-gap { display: flex; flex-wrap: wrap; gap: var(--s2); }
 
 @media (max-width: 1080px) {
   .dash { grid-template-columns: minmax(0, 1fr); grid-template-areas: "attention" "chat" "ledger"; }

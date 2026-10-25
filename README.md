@@ -12,7 +12,7 @@ Built for the Nebius x NVIDIA Global AI Hackathon, **Personal AI** track. It run
 
 Every loop goes through five steps:
 
-1. **Capture.** You tell it in the dashboard chat or on Telegram, email arrives from someone you're waiting on, or you forward a message or a screenshot.
+1. **Capture.** You tell it in the dashboard chat or on Telegram, paste a message into the dashboard (no Hermes needed), email arrives from someone you're waiting on, or you forward a message or a screenshot.
 2. **Remember.** Goals, loops, people and the exact words each loop came from are saved in one SQLite file.
 3. **Check.** When a loop asks you to pay or share details, ScamGraph researches who's asking on the live web and fixed rules score the risk.
 4. **Remind.** **Needs attention** and the 8:00 Telegram briefing list what's overdue, due soon, stalled or risky.
@@ -60,7 +60,7 @@ Every loop goes through five steps:
 ### Before things slip
 
 - **Needs attention.** The top of the dashboard lists what's overdue, due today or tomorrow, or hasn't been touched for 4 days (`STALE_DAYS`). Plain rules, no LLM, so it's instant and predictable. Ask *"What's urgent?"* in chat for the same list.
-- **What it depends on.** Say *"I promised Sarah my NVIDIA application by Friday, but I can only send it once Dr. Lim sends my reference letter"* and Troth links the two. If Dr. Lim's letter slips past Friday (say his email moves it to next week), the application moves to the top of Needs attention with the reason and options worked out in code: *at risk: "Get reference letter from Dr. Lim" is due Wed Oct 28, after this. Options: Ask Dr. Lim if Thu Oct 22 works · Tell Sarah early and offer Wed Oct 28 · Move your date.* The sync job posts the same line to Telegram, and *Ready* once the letter arrives. Links come only from what you say, never from a shared topic. Ask *"what's blocking the application?"* to see them.
+- **What it depends on.** Say *"I promised Sarah my NVIDIA application by Friday, but I can only send it once Dr. Lim sends my reference letter"* and Troth links the two. If Dr. Lim's letter slips past Friday (say his email moves it to next week), the application moves to the top of Needs attention with the reason and options worked out in code: *at risk: "Get reference letter from Dr. Lim" is due Wed Oct 28, after this. Options: Ask Dr. Lim if Thu Oct 22 works · Tell Sarah early and offer Wed Oct 28 · Move your date.* The sync job posts the same line to Telegram, and *Ready* once the letter arrives; Needs attention shows *ready* for 3 days too. Links come only from what you say, never from a shared topic. Ask *"what's blocking the application?"* to see them.
 - **Snooze.** Hide a loop until Tomorrow, In 3 days, Next Monday or any date, from the dashboard or in chat (*"snooze the portfolio till Monday"*). It comes back on that day.
 - **Drafts.** Click **Draft** (or ask *"draft a follow-up to Sarah"*) and Troth writes a short message for you to copy. It never sends anything.
 - **Telegram.** The same assistant on your phone: capture loops on the go, ask what's urgent. [Setup](#telegram-optional).
@@ -68,9 +68,9 @@ Every loop goes through five steps:
 
 ### When loops close on their own
 
-- **Email.** Give Troth someone's address (*"Sarah's email is sarah@nvidia.com"*) and it reads new mail from them, and only them, every 10 minutes. A reply that answers your loop closes it, a new deadline becomes a task, and a meeting time becomes a calendar proposal. [Setup](#google-setup-optional).
+- **Email.** Give Troth someone's address (*"Sarah's email is sarah@nvidia.com"*) and it reads new mail from them every 10 minutes. A reply that answers your loop closes it, a new deadline becomes a task, and a meeting time becomes a calendar proposal. Mail from someone new (not newsletters or Gmail's Promotions, Social, Updates and Forums) only suggests a loop: **Add** keeps it and follows their replies, **Ignore** drops it. [Setup](#google-setup-optional).
 - **Web.** Say *"keep an eye on the hackathon results"* and Troth searches for it once a day with Tavily. Ask *"when does the Google STEP application close?"* and it looks it up, with the link. What the web says is only ever a proposal.
-- **Your yes first.** Calendar events, Gmail drafts (*"draft a thank-you reply to Sarah"*) and web findings wait under **Pending actions**, or on Telegram, until you approve. Nothing is ever sent. If one fails (say Google was disconnected), it stays there with **Try again**.
+- **Your yes first.** Calendar events, Gmail drafts (*"draft a thank-you reply to Sarah"*) and web findings wait under **Waiting for your yes**, or on Telegram, until you approve. Nothing is ever sent. If one fails (say Google was disconnected), it stays there with **Try again**.
 - **Edit.** Fix a loop's title, kind, person, date or next action from its panel. The old values stay in History, with Undo.
 - **Undo.** Each loop's History shows what changed it (you, chat, email or the web) and the words behind it, with Undo on automatic changes.
 - **Only what was written.** Each loop and change keeps the words that state it, checked to really be in your message or the email. An email change Troth can't quote from the email isn't made. Emails and web pages reach the model marked as someone else's words, never instructions.
@@ -123,7 +123,7 @@ flowchart LR
     I -->|extract, plan, check, summary| N
     I -->|search + extract| T[Tavily]
     SYNC[sync.py<br/>Hermes cron, every 10 min] --> E
-    SYNC -->|mail from linked people| GM[Gmail]
+    SYNC -->|mail from linked people;<br/>from others, proposals only| GM[Gmail]
     SYNC -->|watched loops| T
     E -->|after your yes| GA[Gmail drafts / Calendar]
 ```
@@ -192,13 +192,13 @@ npm run dev      # http://localhost:5173 with hot reload; /api goes to Troth on 
 npm run build    # type-checks, then rebuilds backend/app/static (commit it)
 ```
 
-`TAVILY_API_KEY` in `.env` is needed for ScamGraph's research (without it, only the message itself is checked) and for web watch and lookup (free key at tavily.com). Then say "keep an eye on the hackathon results", or use **Watch the web** in a loop's detail. `python scripts/sync.py` runs the check: each watched loop is searched at most once a day, and anything found shows under **Pending actions**.
+`TAVILY_API_KEY` in `.env` is needed for ScamGraph's research (without it, only the message itself is checked) and for web watch and lookup (free key at tavily.com). Then say "keep an eye on the hackathon results", or use **Watch the web** in a loop's detail. `python scripts/sync.py` runs the check: each watched loop is searched at most once a day, and anything found shows under **Waiting for your yes**.
 
 `requirements.txt` pins the tested versions; `-e .` installs Troth itself so the scripts can import it.
 
 On Windows the Hermes installer puts `hermes.exe` in `%LOCALAPPDATA%\hermes\bin`. If `hermes` isn't found, add that folder to your PATH.
 
-To try the UI without an LLM, fill a scratch database with sample data: set `DATABASE_URL=sqlite:///./data/seed.db`, then run `python scripts/seed_demo.py` and start uvicorn with the same `DATABASE_URL`.
+To try the UI with sample data, set `DATABASE_URL=sqlite:///./data/seed.db`, then run `python scripts/seed_demo.py` and start uvicorn with the same `DATABASE_URL`. It loads the [judges' demo](#a-demo-for-judges) and refuses a database that already holds other data.
 
 ### Running on a server
 
@@ -206,7 +206,12 @@ Set `APP_PASSWORD` in `.env`: every page and `/api` then asks for it (any userna
 
 ### Deploy to GCP Compute Engine
 
-CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) tests every push. When `main` passes, it deploys that commit to the VM over SSH: it updates the code, installs the dependencies, re-runs `setup_hermes.py`, then restarts Troth and Hermes. Your `.env` and database on the VM stay as they are. To redeploy by hand: Actions → CI → Run workflow.
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) tests every push. When `main` passes, it deploys that commit to the VM over SSH. It updates the code, then redoes only what changed since the last deploy that finished:
+- new dependencies → `pip install`;
+- code in `backend/app/` → restart Troth, then Hermes;
+- `backend/hermes/` or `setup_hermes.py` → `setup_hermes.py` and a Hermes restart.
+
+Docs, tests, scripts and the UI build go live without a restart. Your `.env` and database on the VM stay as they are. After editing `.env` on the VM, or to redo everything, run it by hand: Actions → CI → Run workflow. A change to `scripts/setup_server.sh` isn't applied by a deploy: run it again on the VM.
 
 **Once, on the VM:**
 1. Create a VM: Debian 12, e2-small or larger, with **Allow HTTP traffic** and **Allow HTTPS traffic** ticked. Make its external IP static (VPC network → IP addresses → Promote to static).
@@ -225,6 +230,27 @@ CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) tests every push. When
 4. On GitHub, go to Settings → Secrets and variables → Actions and add `DEPLOY_HOST` (the VM's IP), `DEPLOY_USER` (`<vm-user>`), `DEPLOY_SSH_KEY` (the contents of `troth-deploy`) and `DEPLOY_KNOWN_HOSTS` (the output of step 3). Then delete the local key files.
 
 A deploy doesn't change the database schema. If a change needs a new one, delete the `.db` file on the VM (or reset the Postgres database), then redeploy.
+
+### A demo for judges
+
+`scripts/seed_demo.py` fills an empty database with a short story, dated from today:
+- a promise put at risk by an email that moves what it needs;
+- an overdue reply, a stale task and a promise due tomorrow;
+- a loop an email closed, with Undo;
+- a suggestion from a new sender waiting for Add or Ignore;
+- two finished message checks: a clone of a real fund company (critical risk) and a real bank (low).
+
+The checks replay test samples B and C as recorded with Tavily (`tests/fixtures/scam_frozen.jsonl`), scored with today's rules, so loading costs no Tavily credits; Nemotron writes their findings. The script refuses a database that holds data and isn't marked as the demo, and `--reset` empties only a demo.
+
+On the VM, give the demo its own database and password, so judges never see your data:
+1. Create an empty Postgres database (for example a second Neon database).
+2. In `~/troth/backend/.env`, set `DATABASE_URL` to it and `APP_PASSWORD` to a password just for judges, then `sudo systemctl restart troth`.
+3. Load it: `cd ~/troth/backend && .venv/bin/python scripts/seed_demo.py`.
+4. Reload it every night, so one judge's changes don't reach the next. `crontab -e`, then add (19:00 UTC is 03:00 in Malaysia; check the VM's zone with `date`):
+   ```
+   0 19 * * * cd ~/troth/backend && .venv/bin/python scripts/seed_demo.py --reset >> data/seed_demo.log 2>&1
+   ```
+Google can't be connected on the VM (its sign-in only works on your own computer), so email shows only in the sample data.
 
 ### Telegram (optional)
 
@@ -252,9 +278,13 @@ An older job made from `hermes/briefing_prompt.md` switches over with `hermes -p
 
 The gateway (`hermes -p continuum gateway run`) must be running for it to fire. To try it now: `hermes -p continuum cron list` shows the job id, and `hermes -p continuum cron run <id>` sends it within a minute.
 
+### Automatic email and web sync (optional, no Telegram needed)
+
+Set `AUTO_SYNC_MINUTES=10` in `.env` and restart Troth. While it runs, it reads new email and checks watched loops on the web every 10 minutes, the same as `python scripts/sync.py`. Email from people linked to open loops can close or update their loops. Mail from anyone else (not newsletters, no-reply senders, or Gmail's Promotions, Social, Updates and Forums tabs) only suggests new loops under **Waiting for your yes**: **Add** saves the loop and the sender's address, so their replies are followed; **Ignore** deletes that email's text and the sender's address. `EMAIL_NEW_SENDERS=0` reads only linked people. What changed shows in the dashboard: loops an email closed or updated (with Undo), **Waiting for your yes** for what waits for your yes, and **Needs attention**. **Settings** shows the last email check and, if one failed, why (for example, Google ended the connection: connect again). Use this or the Telegram job below on one machine, not both.
+
 ### Email and web sync on Telegram (optional, needs Telegram plus Google or Tavily)
 
-Every 10 minutes Troth reads new email from people linked to open loops, and once a day it checks each loop you asked it to watch on the web. It sends what changed to Telegram: loops an email closed or updated (undo in the dashboard), a calendar event when an email sets a date and time, and web findings. Events and web findings wait for your "yes" or "no". Create the job once, after `setup_hermes.py` (it installs the script the job runs):
+Every 10 minutes Troth reads new email, and once a day it checks each loop you asked it to watch on the web. It sends what changed to Telegram: loops an email closed, updated or added (undo in the dashboard), a calendar event when an email sets a date and time, and web findings. Events, web findings, an email's new task that has a link or an email address or asks for money or details, and every task from someone not linked to an open loop wait for your "yes" or "no". Create the job once, after `setup_hermes.py` (it installs the script the job runs):
 
 ```bash
 hermes -p continuum cron create "every 10m" --no-agent --script continuum_sync.py --deliver telegram --name sync
@@ -270,7 +300,7 @@ Lets Troth read email from people you're waiting on and, with your yes, save Gma
 2. Under **Google Auth Platform → Audience**, set the user type to **External**, leave the status at **Testing**, and under **Test users** add the Google account you'll sign in with. Without it, Google stops sign-in with *"Access blocked … Error 403: access_denied"* (the app is in testing and you're not a tester).
 3. Under **Clients**, create a client of type **Desktop app**. Download its JSON and save it as `backend/data/client_secret.json`.
 4. In the dashboard, open **Settings** and click **Connect Google**. Your browser opens Google's sign-in.
-5. Give someone's address, in chat (*"Sarah's email is sarah@nvidia.com"*) or in a loop's **Contact email**. From then on, `python scripts/sync.py` (or the cron job above) reads their new email and updates their loops. The first run reads the last 7 days (`SYNC_LOOKBACK_DAYS`).
+5. Give someone's address, in chat (*"Sarah's email is sarah@nvidia.com"*) or in a loop's **Contact email**. From then on, `python scripts/sync.py` (or `AUTO_SYNC_MINUTES`, or the cron job above) reads their new email and updates their loops. One address belongs to one person. The first run reads the last 7 days (`SYNC_LOOKBACK_DAYS`).
 
 To check the connection on its own: `python scripts/google_gate.py someone@example.com` lists the last 5 emails from that address, saves a test draft (not sent) and creates a test event tomorrow at 10:00. Delete both afterwards.
 
@@ -287,12 +317,15 @@ pytest -m live    # real Nemotron + Hermes + Tavily (needs keys and both servers
 
 The live suite runs the acceptance inputs against real Nemotron, e.g. "Alex said he'll send me the dataset tomorrow" (a waiting loop due tomorrow), "The weather was nice today" (nothing saved), the same message twice (one loop), and "Alex sent the dataset" (loop resolved).
 
+`pytest -m eval` scores Troth on real, labelled messages, 5 runs each, with 95% intervals. That covers loops from chat and email, message checks, and injection attempts: 20 synthetic, and 111 from the AgentDojo and BIPIA benchmarks. The data stays local in `backend/data/eval/`. How it works, and how to label: [troth_eval.md](troth_eval.md), [troth_labelling_guide.md](troth_labelling_guide.md).
+
 ## Privacy
 
 - Everything is in one database: `backend/data/continuum.db` (SQLite) on your machine, or the Postgres in `DATABASE_URL` (the GCP deploy uses Neon). What leaves it: text sent to Nebius for Nemotron to do its job; your Telegram messages if you turn Telegram on (they pass through Telegram's servers); with a Tavily key, only your watch searches and lookup questions go to Tavily, never your messages. Only the names of people you wait on go to the model, not their email addresses.
-- **Email** (if you connect Google): only mail *from* people you gave an address for, and only while they have an open loop. Troth never lists or searches the rest of your inbox. Each email's subject and new text (quotes and signature removed, at most 4,000 characters) go to Nemotron. The text is stored only if it changed a loop. Attachments are never downloaded. **Forget email data** in Settings deletes all stored email text, quotes included; loops made from it stay, marked "source deleted".
+- **Email** (if you connect Google): new mail *from* people linked to an open loop, and new mail people sent you from anyone else, except newsletters, no-reply senders and Gmail's Promotions, Social, Updates and Forums tabs (`EMAIL_NEW_SENDERS=0` reads only linked people). Mail from anyone else changes nothing: it can only suggest a loop for your Add or Ignore. Each email's subject and new text (quotes and signature removed, at most 4,000 characters) go to Nemotron. The text is stored only if it changed or suggested a loop; Ignore deletes it. Attachments are never downloaded. **Forget email data** in Settings deletes all stored email text, quotes included; loops made from it stay, marked "source deleted".
 - **ScamGraph**: the message, screenshot and page text go to Nebius. Names, websites, phone numbers and the submitted link go to Tavily as searches. Screenshots are saved in `backend/data/uploads/` (gitignored, never served). A risky check's message is also kept as its loop's source. Logs hold ids, counts and step names, never the message, quotes or searches.
 - Every loop links to the message it came from. Deleting a loop deletes those words too, unless another loop still uses them (an email keeps only its Gmail id, so sync doesn't read it again). A message check can be deleted on its page, with its screenshot.
+- **Settings → All your data:** **Export my data** downloads one JSON file with your loops, goals, people, messages, history, proposals and checks. **Delete everything** empties it all, screenshots included, after a confirm; Google stays connected until you disconnect it. On the GCP deploy, your PC and the server share one database, so this deletes it for both.
 - Troth never sends anything on your behalf. Drafts are text for you to copy, or Gmail drafts you send yourself.
 - Messages that change nothing (questions, small talk) aren't stored by Troth. Hermes keeps its own chat history in its `continuum` profile folder.
 - Logs record event names, counts and ids (`extraction_ok`, `loop_created`, `loop_resolved`, `email_synced`), never message content, email subjects or API keys.
@@ -301,7 +334,7 @@ The live suite runs the acceptance inputs against real Nemotron, e.g. "Alex said
 
 - **One user.** Without `APP_PASSWORD`, run it on your own machine only.
 - **ScamGraph is a heuristic.** Signal weights are plain rules, not probabilities. Finding a company's official website depends on Nemotron reading the right page, about 2 runs in 3 for a clone of a foreign company; without it the identity stays "not verified". Malaysian regulators only (SC, Bank Negara). A check takes 1-2 minutes.
-- **Extraction is an LLM's judgment.** It can miss an item or misread a date. The prompt lists the next two weeks, so the model looks weekdays up instead of counting (10 of 10 weekday phrases right in a live run, 2026-10-19), and snooze days like "monday" are worked out in code. Every loop shows the words it came from so you can check it, and wrong loops can be deleted.
+- **Extraction is an LLM's judgment.** It can miss an item or misread a date. On 18 of the author's real emails held out from tuning, 52% (31–73%) were handled fully right, and 22% of the loops Troth made were in the hand-made answer key; most extras came from newsletters and announcements. Those senders aren't linked to a loop, so their tasks wait for your Add or Ignore instead of landing in your list ([troth_eval.md](troth_eval.md) §15–16). The prompt lists the next two weeks, so the model looks weekdays up instead of counting (10 of 10 weekday phrases right in a live run, 2026-10-19), and snooze days like "monday" are worked out in code. Every loop shows the words it came from so you can check it, and wrong loops can be deleted.
 - **`next_action` is usually empty**, because the model is told never to invent anything the message doesn't state.
 - **Dedup is exact-match** on normalized title + person, plus giving the model the existing loops. Reworded duplicates can slip through.
 - **Hermes' standalone gateway** (`gateway.standalone: true`) is a shim Hermes marks as temporary. `hermes/config.example.yaml` describes the fallback.
@@ -310,6 +343,7 @@ The live suite runs the acceptance inputs against real Nemotron, e.g. "Alex said
 - Run on your own computer, Telegram and the daily briefing only work while it's on. The [GCP deploy](#deploy-to-gcp-compute-engine) keeps them running.
 - Scheduled jobs (the daily briefing, web watch) only run while the gateway is running. A briefing missed while it was off is sent once when the gateway starts again, so it can arrive late.
 - **Check who's asking** shows on loops whose words mention money, a link or an account (a keyword test). Any message can still be checked on **Check a message**.
+- **An email can still slip in a task.** On 42 held-out attacks from the AgentDojo benchmark, 3% still changed something without asking, down from 10% ([troth_eval.md](troth_eval.md) §13.2). A task with a link or an email address, or one that asks for money or details, waits for your yes. Plain requests ("explain photosynthesis") still become tasks. Every email change can be undone.
 
 ## Feedback on Nebius Token Factory and Nemotron
 
