@@ -84,7 +84,9 @@ def test_a_draft_to_the_sender_replies_in_their_thread(session: Session) -> None
     wait, _ = linked(session)
     eng.sync_email(session, FakeLLM(result(resolved=[{"id": str(wait.id), "quote": YES}])), FakeMailbox({SARAH: [email()]}))
     action = eng.propose_google(session, wait.id, DRAFT)  # resolved loops still get drafts
-    assert eng.describe_action(session, action) == f'Save a Gmail draft to {SARAH}: "Thank you"? It won\'t be sent.'
+    # "won't be sent" became "won't be sent until you approve" in the model's words (Telegram, 2026-10-26)
+    assert eng.describe_action(session, action) == (
+        f'Save a Gmail draft to {SARAH}: "Thank you"? It stays in your Drafts: Troth never sends it.')
     google = FakeGoogle()
     eng.approve_action(session, action.id, lambda: google)
     assert google.drafts == [(SARAH, "Thank you", DRAFT.body, "t-m1")]

@@ -248,8 +248,8 @@ def build_mcp(
         """Propose saving an email as a Gmail draft, e.g. "draft a thank-you reply to Sarah". Write the full body.
         `to` must be the person's real address (inspect_loop shows contact_email; never guess). If their loop is
         closed, find it with list_open_loops(include_resolved=true). A draft to the
-        loop's person replies in their email thread. Troth never sends email: after the user's yes, the draft
-        waits in Gmail for them to send. Tell them it waits for their OK."""
+        loop's person replies in their email thread. Troth never sends email: a yes only saves the draft, which
+        waits in Gmail for the user to send. Show the `proposed` line as-is."""
         try:
             draft = eng.GmailDraft(to=to.strip(), subject=subject.strip(), body=body, thread_id=thread_id)
         except ValidationError as e:
