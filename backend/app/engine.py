@@ -1141,7 +1141,7 @@ def describe_action(session: Session, action: PendingAction) -> str:
         event = CalendarEvent.model_validate(action.payload)
         return f'Add "{event.title}" to your calendar, {event.start:%a %b} {event.start.day} {event.start:%H:%M}?'
     draft = GmailDraft.model_validate(action.payload)
-    return f'Save a Gmail draft to {draft.to}: "{draft.subject}"? It won\'t be sent.'
+    return f'Save a Gmail draft to {draft.to}: "{draft.subject}"? It stays in your Drafts: Troth never sends it.'
 
 
 def approve_action(
