@@ -10,9 +10,10 @@ class Settings(BaseSettings):
     # NVIDIA Nemotron on Nebius Token Factory, for both extraction and Hermes.
     nebius_api_key: SecretStr = SecretStr("")
     nebius_base_url: str = "https://api.tokenfactory.nebius.com/v1/"
-    nebius_model: str = "nvidia/nemotron-3-super-120b-a12b"
-    # No Nemotron model on Token Factory reads images, so screenshots alone go here (Phase 4 §0.5).
-    nebius_vision_model: str = "google/gemma-3-27b-it"
+    nebius_model: str = "nvidia/Nemotron-3.5-Super-VL"
+    nebius_vision_model: str = "nvidia/Nemotron-3.5-Super-VL"  # reads screenshots in message checks
+    # The rest of a message check: 3.5 Super VL writes more reasoning there and was 1.8x slower (2026-10-27).
+    nebius_check_model: str = "nvidia/nemotron-3-super-120b-a12b"
     llm_timeout: float = 60
 
     hermes_api_url: str = "http://127.0.0.1:8642/v1"

@@ -1,4 +1,4 @@
-"""Phase 4 curated evaluation set (spec §13) against real Nemotron (and Gemma for the screenshot).
+"""Phase 4 curated evaluation set (spec §13) against real Nemotron (3.5 Super VL reads the screenshot).
 Rerun after any change to the pipeline, ranking or rules. Run: pytest -m live -k scam_live
 
 Each scenario runs real Tavily research: up to 8 searches + 1 extract (about 10 credits)."""
@@ -115,7 +115,7 @@ def test_f_rental_payee_bank(engine: Engine) -> None:
 
 
 def test_screenshot_is_read(engine: Engine) -> None:
-    """Scenario D as an image: Gemma reads it, Nemotron extracts from the text."""
+    """Scenario D as an image: Nemotron 3.5 Super VL reads it, the check model extracts from the text."""
     got = run(engine, screenshot=(SCENARIOS / "d_sparse.png").read_bytes())
     assert "rm100 registration fee" in " ".join(got["text"].split()).casefold()
     assert "payment_pressure" in got["signals"]

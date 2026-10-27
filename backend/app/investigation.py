@@ -194,6 +194,16 @@ def fail_interrupted(session: Session) -> int:
     return len(stuck)
 
 
+class CheckModel:
+    """Sends a check's calls to NEBIUS_CHECK_MODEL. A call that names its own model (a screenshot) keeps it."""
+
+    def __init__(self, llm: Completer) -> None:
+        self.llm = llm
+
+    def complete(self, messages: list[dict[str, Any]], json_mode: bool = False, model: str | None = None) -> str:
+        return self.llm.complete(messages, json_mode=json_mode, model=model or settings.nebius_check_model)
+
+
 # --- pipeline (spec §6) ---
 
 
@@ -207,7 +217,7 @@ def run_investigation(
         if investigation is None:
             raise NotFound(f"Investigation {investigation_id} not found.")
         try:
-            llm = get_llm()
+            llm = CheckModel(get_llm())
             text = _intake(session, investigation, llm, get_web)
             _extract(session, investigation, llm, text)
             read = _research(session, investigation, llm, get_web)

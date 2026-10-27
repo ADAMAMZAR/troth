@@ -4,7 +4,7 @@
 
 model:
   provider: nebius
-  default: nvidia/nemotron-3-super-120b-a12b
+  default: nvidia/Nemotron-3.5-Super-VL
   base_url: https://api.tokenfactory.nebius.com/v1/
 
 mcp_servers:
