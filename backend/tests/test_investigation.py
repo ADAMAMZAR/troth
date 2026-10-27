@@ -85,7 +85,7 @@ class ScamLLM:
     def kinds(self) -> list[str]:
         """Which prompt each call was, in order."""
         def kind(model: str | None, system: Any) -> str:
-            if model:
+            if model == settings.nebius_vision_model:
                 return "vision"
             starts = {"You plan": "plan", "You check": "check", "You write": "summary"}
             return next((k for p, k in starts.items() if system.startswith(p)), "extract")
@@ -246,7 +246,7 @@ def test_text_is_extracted_and_checked(client: TestClient, llm: ScamLLM, web: Fa
     ]
     assert web.extracted == []  # no link, no Tavily
     model, messages = llm.calls[0]
-    assert model is None  # NEBIUS_MODEL: Nemotron
+    assert model == settings.nebius_check_model
     assert "untrusted" in messages[0]["content"] and MESSAGE in messages[1]["content"]
 
 
@@ -284,7 +284,8 @@ def test_screenshot_goes_to_the_vision_model(client: TestClient, llm: ScamLLM) -
     assert got["status"] == "done"
     assert got["input_text"] == f"[Text in the screenshot]\n{MESSAGE}"
     (vision, messages), (nemotron, _) = llm.calls[:2]
-    assert vision == settings.nebius_vision_model and nemotron is None
+    # the rest of a check runs on NEBIUS_CHECK_MODEL: 3.5 Super VL was 1.8x slower on checks (2026-10-27)
+    assert vision == settings.nebius_vision_model and nemotron == settings.nebius_check_model
     image = messages[0]["content"][1]["image_url"]["url"]
     assert image.startswith("data:image/png;base64,")
     assert got["entities"]  # extracted from the screenshot's text

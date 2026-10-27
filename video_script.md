@@ -76,7 +76,7 @@ The chat message in Scene 2 was tested twice against the real model (2026-10-26)
 
 **Do:** Show the architecture diagram for about 10 s, then the Token Factory usage page for 2–3 s, so the Nemotron requests are visible.
 
-**Say:** "Under the hood, Hermes Agent is the assistant, calling Troth through 18 MCP tools. NVIDIA Nemotron 3 Super on Nebius Token Factory does every reasoning step: the agent, the extraction, and the scam research. Tavily brings the evidence."
+**Say:** "Under the hood, Hermes Agent is the assistant, calling Troth through 18 MCP tools. Every model call is NVIDIA Nemotron on Nebius Token Factory: Nemotron 3.5 Super VL for the agent, the extraction and screenshots, and Nemotron 3 Super for the scam research, where it measured faster. Tavily brings the evidence."
 
 ## Scene 8 · 2:55–3:00 · Browser: Troth dashboard
 

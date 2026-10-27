@@ -34,7 +34,7 @@ Troth pulls **open loops** out of normal conversation (tasks, promises you made,
 
 ## How we built it
 - **Hermes Agent** is the assistant: dashboard chat, Telegram, cron jobs, and two skills (`/check`, `/briefing`). It calls Troth through 18 MCP tools and has nothing else: no terminal, files or browser.
-- **NVIDIA Nemotron 3 Super on Nebius Token Factory** does every reasoning step: the agent, loop extraction, and ScamGraph's extraction, research plan, page checks and summary. Screenshots are read by Gemma 3 on the same endpoint, because no Nemotron model there reads images.
+- **NVIDIA Nemotron on Nebius Token Factory** makes every model call. Nemotron 3.5 Super VL runs the agent, loop extraction and screenshot reading; Nemotron 3 Super runs ScamGraph's extraction, research plan, page checks and summary, where we measured it 1.8x faster than 3.5.
 - **Tavily** Search and Extract gather the evidence. Our server never opens a suspicious link itself.
 - **Troth** itself is Python and FastAPI with a React dashboard. The model proposes; code decides. Pydantic validates every reply, quotes must appear word for word in the input, due dates must fall on the weekday the quote names, and risk levels come from fixed rules.
 - It runs on a small GCP VM behind a password, deployed by CI, with Gmail and Calendar connected to a demo account.
@@ -88,14 +88,13 @@ https://troth-nebius-nvidia.duckdns.org
 
 **Which model(s) did you use, and why did you choose that size/variant?**
 ```text
-NVIDIA Nemotron 3 Super (nvidia/nemotron-3-super-120b-a12b) on Nebius Token Factory does every reasoning step in Troth:
-- the Hermes agent (dashboard chat, Telegram and the cron briefing, choosing among 18 MCP tools)
-- pulling open loops out of chat and email
-- each ScamGraph step: extraction, research plan, page checks and summary
+Two Nemotron models on Nebius Token Factory make every model call in Troth:
+- Nemotron 3.5 Super VL (nvidia/Nemotron-3.5-Super-VL): the Hermes agent (dashboard chat, Telegram and the cron briefing, choosing among 18 MCP tools), pulling open loops out of chat and email, and reading screenshots.
+- Nemotron 3 Super (nvidia/nemotron-3-super-120b-a12b): each ScamGraph step: extraction, research plan, page checks and summary.
 
-Why Super: Troth needs one model that is both a dependable tool-calling agent and a strict JSON extractor. The mixture-of-experts design (120B total, 12B active per token) gives large-model instruction-following without running a 120B dense model. Token Factory switches models with one env var, so we timed the alternatives on the real pipeline. Nano 30B took 27 s and needed a retry, 3.5 Lightning took 64 s, and Super took 11-37 s. Neither alternative was faster for our prompts, so we kept Super.
+Why Super-class: Troth needs a dependable tool-calling agent and a strict JSON extractor. The mixture-of-experts design (120B total, 12B active per token) gives large-model instruction-following without running a 120B dense model. Token Factory switches models with one env var, so we timed the alternatives on the real pipeline. Nano 30B took 27 s and needed a retry, and 3.5 Lightning took 64 s, so we built on 3 Super.
 
-One exception: no Nemotron model on Token Factory accepts images. Screenshots go to google/gemma-3-27b-it on the same endpoint, only to turn them into text. Nemotron does all the reasoning on that text.
+Why two: when 3.5 Super VL arrived (Oct 15), we reran all 32 live tests on it, and all passed. It took our extraction call from 10-17 s to 6-9 s with the same answers, made tool calls about 3x faster, and reads images, which replaced the Gemma 3 model we had used for screenshots. But on message checks it writes more reasoning and was 1.8x slower (99 s against 59 s on the same scenario, run side by side), so checks stay on 3 Super. Each step uses the model that measured best for it.
 ```
 
 **How would you rate Nemotron's output quality for your use case? (1-10)**
@@ -109,7 +108,7 @@ What worked well:
 - Asking only when needed: it asked a clarifying question in 8 of 9 vague requests and never when the details were given.
 
 What fell short:
-- Latency: about 85% of an extraction call's output is reasoning (measured 2026-10-26), so one call takes about 12 s and a scam check with several calls takes 1-2 minutes.
+- Latency: on 3 Super, about 85% of an extraction call's output is reasoning (measured 2026-10-26), so one call takes about 12 s (6-9 s on 3.5 Super VL) and a scam check with several calls takes 1-2 minutes.
 - JSON field names drift: it sometimes wrote "behaviors" where the schema says "behaviours". We accept both and retry once.
 - Reading evidence: it finds a foreign company's official site in about 2 of 3 runs.
 - As the agent, it sometimes rewords tool results in ways that change their meaning (e.g. "won't be sent until you approve" for a draft that is never sent). Where it matters, the tool returns a line the model shows word for word.
@@ -130,7 +129,7 @@ Prompt engineering plus guardrails in code; no fine-tuning. The base model was g
 ```text
 We didn't run a formal head-to-head against non-NVIDIA models. DeepSeek V4 Flash was a stand-in for the first few days, until our Nebius key arrived. The same Hermes + MCP gate test passed on both. Once Nemotron was running, we removed DeepSeek entirely, and every result we report is on Nemotron.
 
-Within the Nemotron family, Super was the only one that was both reliable and reasonably fast for our prompts. Nano needed retries and was no faster, and 3.5 Lightning was slower. None of the four we tried (Nano 30B, 3.5 Lightning, Super 120B, Ultra 550B) accepts images on Token Factory.
+Within the Nemotron family: Nano needed retries and was no faster, and 3.5 Lightning was slower, so we built on 3 Super. When 3.5 Super VL arrived, it passed all 32 live tests and was about 1.6x faster at extraction, but 1.8x slower on message checks, where it writes more reasoning. So we run each where it measured best. Before 3.5 Super VL, no Nemotron on Token Factory accepted images, and we used Gemma 3 for screenshots; now every call is Nemotron.
 ```
 
 **Which Nebius platform capabilities were most valuable to your project and how?**
@@ -138,25 +137,25 @@ Within the Nemotron family, Super was the only one that was both reliable and re
 Token Factory's serverless, OpenAI-compatible API was our whole Nebius footprint, and that was the point: we never provisioned or scaled GPUs.
 
 - One endpoint, one key: Hermes Agent ships Nebius as a built-in provider, so the agent and our own Python client (OpenAI SDK, JSON mode, temperature 0) call the same base URL.
-- Models switched by name: the model is one env var. That let us time Nano, 3.5 Lightning and Super on the real pipeline, and test which models accept images, with no code change.
+- Models switched by name: the model is one env var. That let us time Nano, 3.5 Lightning, 3 Super and 3.5 Super VL on the real pipeline, and test which models accept images, with no code change.
 - Reasoning control per request: Token Factory honours reasoning_effort for Nemotron. On our extraction prompt, "low" cut a call from about 12 s to 3.4 s; turning thinking off cut it to 1.3 s but got the people wrong. That knob lets us trade speed for accuracy per step.
-- Two models on the same endpoint: Nemotron Super handles the reasoning; Gemma 3 27B only turns screenshots into text.
+- Two Nemotron models on the same endpoint, chosen per step: 3.5 Super VL for the agent, extraction and screenshots, 3 Super for message checks. Trying a new model on the real pipeline took one env var and a test run.
 - No GPU instances: the app runs on a small GCP VM, deployed by CI. Hermes' scheduled jobs call Token Factory from there: the 8:00 briefing and a sync every 10 minutes.
 ```
 
 **How likely are you to recommend running Nemotron on Nebius to other developers? (1-10)**
 ```text
-8/10. Setup took minutes: an OpenAI-compatible API, a built-in Hermes provider, and model switching by name. Nemotron Super followed detailed extraction and tool-use rules well enough to build on. It would be a 9-10 with a vision-capable Nemotron and lower latency for Super.
+8/10. Setup took minutes: an OpenAI-compatible API, a built-in Hermes provider, and model switching by name. Nemotron followed detailed extraction and tool-use rules well enough to build on, and 3.5 Super VL arriving mid-hackathon let us drop our one non-Nemotron model. It would be a 9-10 with lower latency on reasoning-heavy steps.
 ```
 
 **How would you rate your experience running Nemotron inference on Nebius compared to previous environments? (1-10)**
 ```text
-8/10. There were no GPUs, drivers or model downloads to manage. Our existing OpenAI client and Hermes worked unchanged, and moving between Nemotron sizes was one setting. It lost points for latency (about 12 s per Super call on our extraction prompt, most of it reasoning) and for needing a second, non-Nemotron model for images.
+8/10. There were no GPUs, drivers or model downloads to manage. Our existing OpenAI client and Hermes worked unchanged, and moving between Nemotron sizes was one setting. It lost points for latency: about 12 s per 3 Super call on our extraction prompt, most of it reasoning (6-9 s on 3.5 Super VL), and a message check still takes 1-2 minutes.
 ```
 
 **What additional features or improvements would have made the Nemotron on Nebius experience more effective?**
 ```text
-- Vision: a Nemotron that reads images on Token Factory, so screenshots don't need a second model.
+- Release notes per model on Token Factory: we found 3.5 Super VL by listing the models, not from an announcement, and learned its speed trade-off only by testing.
 - Speed: lower latency or a faster tier for Super, because an agent step plus extraction chains several calls.
 - Schema-enforced output: structured output that holds to a JSON schema, so field names can't drift.
 - A capability table per model: image input, JSON mode, tool calling, reasoning controls and context length. We learned "no image input" from 400 errors and that reasoning_effort works by testing it.
@@ -164,7 +163,7 @@ Token Factory's serverless, OpenAI-compatible API was our whole Nebius footprint
 
 **What do you most hope to see from the Nemotron team next?**
 ```text
-- A multimodal Nemotron on Token Factory. Scam messages often arrive as screenshots.
+- A way to cap reasoning per call that holds quality: 3.5 Super VL was faster on short extraction but slower on longer check prompts.
 - A faster Super-class model for agent loops.
 - Strong Malay-English (Manglish) support. Our users are in Malaysia, and messages there mix both languages.
 ```

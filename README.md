@@ -38,7 +38,7 @@ Every loop goes through five steps:
 | Reusable skills | Two Hermes skills ([hermes/skills/](backend/hermes/skills/)): `/check <message>` and `/briefing` on Telegram. The 8:00 cron job runs `briefing` too. |
 | Tools you choose | 18 MCP tools any MCP client can call ([app/mcp_tools.py](backend/app/mcp_tools.py)). Google, Tavily and Telegram are each opt-in. |
 | Tasks across your daily workflows | Follow-up drafts, Gmail drafts, calendar events, web watch, loops closed by email replies, message checks. Anything that changes the outside world waits for your yes. |
-| NVIDIA open model | Nemotron 3 Super on Nebius Token Factory for every reasoning step ([app/llm.py](backend/app/llm.py)) |
+| NVIDIA open model | Nemotron on Nebius Token Factory for every model call: 3.5 Super VL for the agent, extraction and screenshots, 3 Super for message checks ([app/llm.py](backend/app/llm.py)) |
 | Hermes Agent | Chat, Telegram and cron, with Troth's tools only ([hermes/config.example.yaml](backend/hermes/config.example.yaml)) |
 
 ### Your data
@@ -137,16 +137,18 @@ Troth should hold a real conversation and decide for itself whether a message is
 
 ### Nemotron on Nebius
 
-Both the agent and the extraction run on **NVIDIA Nemotron** (`nvidia/nemotron-3-super-120b-a12b`) through **Nebius Token Factory**:
+Every model call goes to **NVIDIA Nemotron** through **Nebius Token Factory**. The agent and the extraction run on **Nemotron 3.5 Super VL** (`nvidia/Nemotron-3.5-Super-VL`, `NEBIUS_MODEL`):
 
 - **Hermes** uses it for reasoning and tool calls.
 - **Extraction** (`app/extraction.py`) sends Nemotron the message, the current date/timezone and your existing goals and open loops. Nemotron returns JSON (in JSON mode) with new goals, new loops, updates and resolutions. Pydantic validates it. Invalid output gets one retry with the error attached, then fails cleanly.
 
 The engine then drops any ids the model invented, dedups by normalized title, and writes everything in **one transaction**. A failure writes nothing.
 
-ScamGraph also uses Nemotron for every step except one: no Nemotron model on Token Factory reads images, so a screenshot goes to `google/gemma-3-27b-it` (`NEBIUS_VISION_MODEL`, same endpoint) just to turn it into text.
+ScamGraph reads a screenshot with 3.5 Super VL too (`NEBIUS_VISION_MODEL`), then runs its other steps on **Nemotron 3 Super** (`nvidia/nemotron-3-super-120b-a12b`, `NEBIUS_CHECK_MODEL`).
 
-**Where Token Factory helped:** Hermes and our own calls share one OpenAI-compatible endpoint (`NEBIUS_BASE_URL`), and switching models is one env var (`NEBIUS_MODEL`). That let us time three Nemotron models (Nano, 3.5 Lightning, Super) on the real pipeline before picking Super, with no code change.
+**Why two models** (measured 2026-10-27): 3.5 Super VL passed all 32 live tests, took one extraction call from 10–17 s to 6–9 s with the same answers, and reads images. On message checks it writes more reasoning and was 1.8x slower (scenario A: 99 s against 59 s, run side by side), so checks stay on 3 Super. Until 2026-10-27 everything ran on 3 Super with Gemma 3 reading screenshots, so the numbers in [troth_eval.md](troth_eval.md) were measured on 3 Super.
+
+**Where Token Factory helped:** Hermes and our own calls share one OpenAI-compatible endpoint (`NEBIUS_BASE_URL`), and switching models is one env var (`NEBIUS_MODEL`). That let us time Nemotron models (Nano, 3.5 Lightning, Super, and later 3.5 Super VL) on the real pipeline before picking, with no code change.
 
 ### Tavily
 
@@ -346,7 +348,7 @@ The live suite runs the acceptance inputs against real Nemotron, e.g. "Alex said
 - **Dedup is exact-match** on normalized title + person, plus giving the model the existing loops. Reworded duplicates can slip through.
 - **Hermes' standalone gateway** (`gateway.standalone: true`) is a shim Hermes marks as temporary. `hermes/config.example.yaml` describes the fallback.
 - Goals are marked done from the dashboard only, not by chat.
-- **Replies take time**, because Nemotron reasons before it answers. Measured 2026-10-26: a question takes 2–5 s, saving a message 10–20 s (most of it one extraction call, about 85% of whose output is reasoning), a message check 1–2 minutes.
+- **Replies take time**, because Nemotron reasons before it answers. Measured 2026-10-26 on 3 Super: a question takes 2–5 s, saving a message 10–20 s (most of it one extraction call, about 85% of whose output is reasoning), a message check 1–2 minutes. On 3.5 Super VL that extraction call takes 6–9 s.
 - **The deployed demo is slower still.** Its database (Neon, Singapore) is far from the VM (Iowa): about 0.6 s per query. The VM is an e2-micro (1 GB) and swaps, so the 8:00 briefing has taken up to 3.6 minutes. Put the database in the VM's region, or use SQLite on the VM, and use e2-small or larger.
 - Run on your own computer, Telegram and the daily briefing only work while it's on. The [GCP deploy](#deploy-to-gcp-compute-engine) keeps them running.
 - Scheduled jobs (the daily briefing, web watch) only run while the gateway is running. A briefing missed while it was off is sent once when the gateway starts again, so it can arrive late.
@@ -356,7 +358,8 @@ The live suite runs the acceptance inputs against real Nemotron, e.g. "Alex said
 ## Feedback on Nebius Token Factory and Nemotron
 
 - **Worked well:** one OpenAI-compatible endpoint for the agent and our own calls, and switching models by name.
-- **No vision in the Nemotron family on Token Factory.** Nano 30B, 3.5 Lightning, Super 120B and Ultra 550B all return 400 "This model does not support image input". We read screenshots with Gemma 3 on the same endpoint instead.
+- **Vision came late.** Until Nemotron 3.5 Super VL (released 2026-10-15), every Nemotron on Token Factory (Nano 30B, 3.5 Lightning, Super 120B, Ultra 550B) returned 400 "This model does not support image input", so we read screenshots with Gemma 3. 3.5 Super VL reads them now, so Troth is Nemotron end to end.
+- **Faster isn't always faster.** 3.5 Super VL answered our extraction prompt about 1.6x faster, but wrote more reasoning on message checks and was 1.8x slower there. Measure each step.
 - **Latency.** One Nemotron Super call took 11–37 s in our runs. Nano (27 s, needed a retry) and 3.5 Lightning (64 s) weren't faster for our prompts. A message check makes several calls, so it takes 1–2 minutes.
 - **JSON field names drift.** Nemotron sometimes wrote `"behaviors"` where the schema says `"behaviours"`. We accept both and retry once with the validation error.
 

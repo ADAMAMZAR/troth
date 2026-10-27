@@ -171,7 +171,7 @@ def _replay_check(session: Session, llm: Any, item: str, sample: str, when: date
     session.commit()
     inv._verify(session, check)
     inv._score(session, check)
-    inv._summarize(session, check, llm)
+    inv._summarize(session, check, inv.CheckModel(llm))
     inv._track(session, check)
     check.status = InvestigationStatus.done
     inv._step(session, check, "Done")
