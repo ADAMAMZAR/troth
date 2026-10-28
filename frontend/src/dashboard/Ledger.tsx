@@ -140,17 +140,18 @@ function LoopRow({ loop: l, all, fresh, version, webEnabled, act, refresh, goalO
         {due && <span className={`due${due.late ? " late" : due.soon ? " soon" : ""}`}>{due.text}</span>}
         <span className={`chev${open ? " open" : ""}`}><Icon name="chevron" /></span>
       </button>
-      {open && <Detail id={l.id} all={all} version={version} webEnabled={webEnabled} act={act} resolve={resolve} resolveError={resolveError} goalOpen={goalOpen} />}
+      {open && <Detail loop={l} all={all} version={version} webEnabled={webEnabled} act={act} resolve={resolve} resolveError={resolveError} goalOpen={goalOpen} />}
     </li>
   );
 }
 
 interface DetailProps {
-  id: string; all: Loop[]; version: number; webEnabled: boolean; act: Act; resolve: () => void; resolveError: string | null;
+  loop: Loop; all: Loop[]; version: number; webEnabled: boolean; act: Act; resolve: () => void; resolveError: string | null;
   goalOpen: (id: string) => number;
 }
 
-function Detail({ id, all, version, webEnabled, act, resolve, resolveError, goalOpen }: DetailProps) {
+/** Opens at once from the row's own loop; what only the detail has (links, the source, history) follows. */
+function Detail({ loop: l, all, version, webEnabled, act, resolve, resolveError, goalOpen }: DetailProps) {
   const [d, setD] = useState<LoopDetail | null>(null);
   const [history, setHistory] = useState<Activity[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -159,52 +160,78 @@ function Detail({ id, all, version, webEnabled, act, resolve, resolveError, goal
   const [editing, setEditing] = useState(false);
 
   useEffect(() => {
-    Promise.all([api<LoopDetail>(`/api/loops/${id}`), api<Activity[]>(`/api/activity?loop_id=${id}`)])
+    Promise.all([api<LoopDetail>(`/api/loops/${l.id}`), api<Activity[]>(`/api/activity?loop_id=${l.id}`)])
       .then(([detail, acts]) => { setD(detail); setHistory(acts); setError(null); })
       .catch((e) => setError(e.message));
-  }, [id, version]);
+  }, [l.id, version]);
 
-  if (error) return <div className="detail"><p className="error-line">{error}</p></div>;
-  if (!d) return <div className="detail" aria-busy="true"><p className="muted">Loading…</p></div>;
-
-  const resolved = d.status === "resolved";
-  const said = new Date(d.source.created_at);
+  const resolved = l.status === "resolved";
   const fields: [string, string | null | false][] = [
-    ["Kind", KIND[d.kind]],
-    [d.kind === "commitment" ? "Promised to" : "Waiting on", d.waiting_on],
-    ["Due", d.due && shortDate(localDate(d.due))],
-    ["Next action", d.next_action],
-    ["Summary", d.summary],
-    ["Snoozed until", isSnoozed(d) && d.snoozed_until && shortDate(localDate(d.snoozed_until))],
-    ["Resolved", d.resolved_at && new Date(d.resolved_at).toLocaleString()],
+    ["Kind", KIND[l.kind]],
+    [l.kind === "commitment" ? "Promised to" : "Waiting on", l.waiting_on],
+    ["Due", l.due && shortDate(localDate(l.due))],
+    ["Next action", l.next_action],
+    ["Summary", l.summary],
+    ["Snoozed until", isSnoozed(l) && l.snoozed_until && shortDate(localDate(l.snoozed_until))],
+    ["Resolved", l.resolved_at && new Date(l.resolved_at).toLocaleString()],
   ];
 
   async function check() { // the loop's own words go to a message check that stays linked to it
     setChecking(true);
     const form = new FormData();
     form.append("text", d!.source.text);
-    form.append("loop_id", d!.id);
+    form.append("loop_id", l.id);
     try { location.href = `/investigate.html#${await startCheck(form)}`; }
     catch (e) { setCheckError(`Couldn't start the check: ${(e as Error).message}`); setChecking(false); }
   }
 
   function completeGoal() {
-    const open = goalOpen(d!.goal_id!);
+    const open = goalOpen(l.goal_id!);
     const loops = open === 1 ? "its open loop" : `its ${open} open loops`;
     const note = open ? ` This resolves ${loops}. Reopen any of them to undo.` : "";
-    if (confirm(`Mark "${d!.goal_title}" done?${note}`)) act(`/api/goals/${d!.goal_id}/complete`, "POST");
+    if (confirm(`Mark "${l.goal_title}" done?${note}`)) act(`/api/goals/${l.goal_id}/complete`, "POST");
   }
 
   return (
     <div className="detail">
-      {editing ? <EditForm d={d} act={act} done={() => setEditing(false)} /> : (
+      {editing ? <EditForm d={l} act={act} done={() => setEditing(false)} /> : (
         <dl>
           {fields.filter(([, v]) => v).map(([k, v]) => (<div key={k}><dt>{k}</dt><dd>{v}</dd></div>))}
-          {d.goal_title && (
-            <div><dt>Goal</dt><dd>{d.goal_title}{d.goal_status === "active" && <> · <button className="link-btn" type="button" onClick={completeGoal}>Mark goal done</button></>}{d.goal_status === "done" && " · done"}</dd></div>
+          {l.goal_title && (
+            <div><dt>Goal</dt><dd>{l.goal_title}{l.goal_status === "active" && <> · <button className="link-btn" type="button" onClick={completeGoal}>Mark goal done</button></>}{l.goal_status === "done" && " · done"}</dd></div>
           )}
         </dl>
       )}
+      {error ? <p className="error-line">{error}</p>
+        : d ? <Origin d={d} all={all} history={history} act={act} />
+        : <p className="muted" aria-busy="true">Loading where this came from…</p>}
+      {l.person_id && <ContactForm d={l} act={act} />}
+      {webEnabled && !resolved && <WatchForm d={l} act={act} />}
+      <div className="actions">
+        {resolved
+          ? <button className="btn primary" type="button" onClick={() => act(`/api/loops/${l.id}/reopen`, "POST")}>Reopen</button>
+          : <button className="btn primary" type="button" onClick={resolve}>Resolve</button>}
+        {!resolved && (isSnoozed(l)
+          ? <button className="btn" type="button" onClick={() => act(`/api/loops/${l.id}/unsnooze`, "POST")}>Unsnooze</button>
+          : <SnoozeMenu onPick={(until) => act(`/api/loops/${l.id}/snooze`, "POST", { until })} />)}
+        {!editing && <button className="btn" type="button" onClick={() => setEditing(true)}>Edit</button>}
+        {d?.check_id && <a className="btn" href={`/investigate.html#${d.check_id}`}><Icon name="search" />See the check</a>}
+        {d && !d.check_id && !resolved && d.source.kind !== "investigation" && MONEY.test(d.source.text || "") && (
+          <button className="btn" type="button" disabled={checking} onClick={check}><Icon name="search" />{checking ? "Starting the check…" : "Check who's asking"}</button>
+        )}
+        <button className="btn danger apart" type="button"
+          onClick={() => confirm(`Delete "${l.title}" and the words it came from? This can't be undone.`) && act(`/api/loops/${l.id}`, "DELETE")}>Delete</button>
+        {(resolveError || checkError) && <p className="error-line" role="alert">{resolveError || checkError}</p>}
+      </div>
+    </div>
+  );
+}
+
+/** What it depends on, the words it came from, and its history: the parts of a loop the list doesn't carry. */
+function Origin({ d, all, history, act }: { d: LoopDetail; all: Loop[]; history: Activity[]; act: Act }) {
+  const said = new Date(d.source.created_at);
+  return (
+    <>
       <Chain d={d} all={all} act={act} />
       <figure className="why">
         <h4>Why Troth knows this</h4>
@@ -239,25 +266,7 @@ function Detail({ id, all, version, webEnabled, act, resolve, resolveError, goal
           </ul>
         </div>
       )}
-      {d.person_id && <ContactForm d={d} act={act} />}
-      {webEnabled && !resolved && <WatchForm d={d} act={act} />}
-      <div className="actions">
-        {resolved
-          ? <button className="btn primary" type="button" onClick={() => act(`/api/loops/${d.id}/reopen`, "POST")}>Reopen</button>
-          : <button className="btn primary" type="button" onClick={resolve}>Resolve</button>}
-        {!resolved && (isSnoozed(d)
-          ? <button className="btn" type="button" onClick={() => act(`/api/loops/${d.id}/unsnooze`, "POST")}>Unsnooze</button>
-          : <SnoozeMenu onPick={(until) => act(`/api/loops/${d.id}/snooze`, "POST", { until })} />)}
-        {!editing && <button className="btn" type="button" onClick={() => setEditing(true)}>Edit</button>}
-        {d.check_id && <a className="btn" href={`/investigate.html#${d.check_id}`}><Icon name="search" />See the check</a>}
-        {!d.check_id && !resolved && d.source.kind !== "investigation" && MONEY.test(d.source.text || "") && (
-          <button className="btn" type="button" disabled={checking} onClick={check}><Icon name="search" />{checking ? "Starting the check…" : "Check who's asking"}</button>
-        )}
-        <button className="btn danger apart" type="button"
-          onClick={() => confirm(`Delete "${d.title}" and the words it came from? This can't be undone.`) && act(`/api/loops/${d.id}`, "DELETE")}>Delete</button>
-        {(resolveError || checkError) && <p className="error-line" role="alert">{resolveError || checkError}</p>}
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -311,7 +320,7 @@ function Chain({ d, all, act }: { d: LoopDetail; all: Loop[]; act: Act }) {
 }
 
 /** Fix what Troth got wrong. Only changed fields are sent; History keeps the old values, with Undo. */
-function EditForm({ d, act, done }: { d: LoopDetail; act: Act; done: () => void }) {
+function EditForm({ d, act, done }: { d: Loop; act: Act; done: () => void }) {
   const [title, setTitle] = useState(d.title);
   const [kind, setKind] = useState<LoopKind>(d.kind);
   const [who, setWho] = useState(d.waiting_on ?? "");
@@ -357,7 +366,7 @@ function EditForm({ d, act, done }: { d: LoopDetail; act: Act; done: () => void 
   );
 }
 
-function ContactForm({ d, act }: { d: LoopDetail; act: Act }) {
+function ContactForm({ d, act }: { d: Loop; act: Act }) {
   const [email, setEmail] = useState(d.person_email || "");
   const save = (e: FormEvent) => { e.preventDefault(); act(`/api/people/${d.person_id}`, "PATCH", { email: email.trim() || null }); };
   return (
@@ -372,7 +381,7 @@ function ContactForm({ d, act }: { d: LoopDetail; act: Act }) {
   );
 }
 
-function WatchForm({ d, act }: { d: LoopDetail; act: Act }) {
+function WatchForm({ d, act }: { d: Loop; act: Act }) {
   const [query, setQuery] = useState(d.watch_query || [d.goal_title, d.title].filter(Boolean).join(" "));
   const save = (e: FormEvent) => { e.preventDefault(); if (query.trim()) act(`/api/loops/${d.id}/watch`, "PUT", { query: query.trim() }); };
   const checked = d.watch_checked_on ? ` Last checked ${shortDate(localDate(d.watch_checked_on))}.` : "";
