@@ -244,11 +244,10 @@ A deploy doesn't change the database schema. If a change needs a new one, delete
 
 The checks replay test samples B and C as recorded with Tavily (`tests/fixtures/scam_frozen.jsonl`), scored with today's rules, so loading costs no Tavily credits; Nemotron writes their findings. The script refuses a database that holds data and isn't marked as the demo, and `--reset` empties only a demo.
 
-On the VM, give the demo its own database and password, so judges never see your data:
-1. Create an empty Postgres database (for example a second Neon database).
-2. In `~/troth/backend/.env`, set `DATABASE_URL` to it and `APP_PASSWORD` to a password just for judges, then `sudo systemctl restart troth`.
-3. Load it: `cd ~/troth/backend && .venv/bin/python scripts/seed_demo.py`.
-4. Reload it every night, so one judge's changes don't reach the next. `crontab -e`, then add (19:00 UTC is 03:00 in Malaysia; check the VM's zone with `date`):
+On the VM, give the demo its own database and password, so judges never see your data. A SQLite file on the VM is fastest: every query stays on the machine.
+1. In `~/troth/backend/.env`, set `DATABASE_URL=sqlite:////home/<vm-user>/troth/backend/data/demo.db` (four slashes: an absolute path, so the service, the sync job and cron use the same file) and `APP_PASSWORD` to a password just for judges.
+2. Load it, then restart: `cd ~/troth/backend && .venv/bin/python scripts/seed_demo.py && sudo systemctl restart troth`.
+3. Reload it every night, so one judge's changes don't reach the next. `crontab -e`, then add (19:00 UTC is 03:00 in Malaysia; check the VM's zone with `date`):
    ```
    0 19 * * * cd ~/troth/backend && .venv/bin/python scripts/seed_demo.py --reset >> data/seed_demo.log 2>&1
    ```
@@ -330,11 +329,11 @@ The live suite runs the acceptance inputs against real Nemotron, e.g. "Alex said
 
 ## Privacy
 
-- Everything is in one database: `backend/data/continuum.db` (SQLite) on your machine, or the Postgres in `DATABASE_URL` (the GCP deploy uses Neon). What leaves it: text sent to Nebius for Nemotron to do its job; your Telegram messages if you turn Telegram on (they pass through Telegram's servers); with a Tavily key, only your watch searches and lookup questions go to Tavily, never your messages. Only the names of people you wait on go to the model, not their email addresses.
+- Everything is in one database: `backend/data/continuum.db` (SQLite) on your machine, or the database in `DATABASE_URL` (Postgres such as Neon, or the demo's SQLite file on the GCP VM). What leaves it: text sent to Nebius for Nemotron to do its job; your Telegram messages if you turn Telegram on (they pass through Telegram's servers); with a Tavily key, only your watch searches and lookup questions go to Tavily, never your messages. Only the names of people you wait on go to the model, not their email addresses.
 - **Email** (if you connect Google): new mail *from* people linked to an open loop, and new mail people sent you from anyone else, except newsletters, no-reply senders and Gmail's Promotions, Social, Updates and Forums tabs (`EMAIL_NEW_SENDERS=0` reads only linked people). Mail from anyone else changes nothing: it can only suggest a loop for your Add or Ignore. Each email's subject and new text (quotes and signature removed, at most 4,000 characters) go to Nemotron. The text is stored only if it changed or suggested a loop; Ignore deletes it. Attachments are never downloaded. **Forget email data** in Settings deletes all stored email text, quotes included; loops made from it stay, marked "source deleted".
 - **ScamGraph**: the message, screenshot and page text go to Nebius. Names, websites, phone numbers and the submitted link go to Tavily as searches. Screenshots are saved in `backend/data/uploads/` (gitignored, never served). A risky check's message is also kept as its loop's source. Logs hold ids, counts and step names, never the message, quotes or searches.
 - Every loop links to the message it came from. Deleting a loop deletes those words too, unless another loop still uses them (an email keeps only its Gmail id, so sync doesn't read it again). A message check can be deleted on its page, with its screenshot.
-- **Settings → All your data:** **Export my data** downloads one JSON file with your loops, goals, people, messages, history, proposals and checks. **Delete everything** empties it all, screenshots included, after a confirm; Google stays connected until you disconnect it. On the GCP deploy, your PC and the server share one database, so this deletes it for both.
+- **Settings → All your data:** **Export my data** downloads one JSON file with your loops, goals, people, messages, history, proposals and checks. **Delete everything** empties it all, screenshots included, after a confirm; Google stays connected until you disconnect it. If your PC and a server share one database, this deletes it for both.
 - Troth never sends anything on your behalf. Drafts are text for you to copy, or Gmail drafts you send yourself.
 - Messages that change nothing (questions, small talk) aren't stored by Troth. Hermes keeps its own chat history in its `continuum` profile folder.
 - Logs record event names, counts and ids (`extraction_ok`, `loop_created`, `loop_resolved`, `email_synced`), never message content, email subjects or API keys.
@@ -349,7 +348,7 @@ The live suite runs the acceptance inputs against real Nemotron, e.g. "Alex said
 - **Hermes' standalone gateway** (`gateway.standalone: true`) is a shim Hermes marks as temporary. `hermes/config.example.yaml` describes the fallback.
 - Goals are marked done from the dashboard only, not by chat.
 - **Replies take time**, because Nemotron reasons before it answers. Measured 2026-10-26 on 3 Super: a question takes 2–5 s, saving a message 10–20 s (most of it one extraction call, about 85% of whose output is reasoning), a message check 1–2 minutes. On 3.5 Super VL that extraction call takes 6–9 s.
-- **The deployed demo is slower still.** Its database (Neon, Singapore) is far from the VM (Iowa): about 0.6 s per query. The VM is an e2-micro (1 GB) and swaps, so the 8:00 briefing has taken up to 3.6 minutes. Put the database in the VM's region, or use SQLite on the VM, and use e2-small or larger.
+- **Keep the database next to the server.** Every query is a round trip. With the VM in Iowa and Neon in Singapore that was 0.21 s, so the dashboard's loop list took 5 s and opening a loop 2–4 s; on a SQLite file on the VM they take 9 ms and 8 ms (measured on the VM, 2026-10-28). The VM is an e2-micro (1 GB) and swaps, so the 8:00 briefing has taken up to 3.6 minutes; use e2-small or larger.
 - Run on your own computer, Telegram and the daily briefing only work while it's on. The [GCP deploy](#deploy-to-gcp-compute-engine) keeps them running.
 - Scheduled jobs (the daily briefing, web watch) only run while the gateway is running. A briefing missed while it was off is sent once when the gateway starts again, so it can arrive late.
 - **Check who's asking** shows on loops whose words mention money, a link or an account (a keyword test). Any message can still be checked on **Check a message**.
