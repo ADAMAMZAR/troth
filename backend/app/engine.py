@@ -17,7 +17,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field, TypeAdapter, field_validator, model_validator
-from sqlmodel import Session, col, delete, func, or_, select, update
+from sqlmodel import Session, and_, col, delete, func, or_, select, update
 
 from app.config import settings
 from app.db import (
@@ -510,12 +510,11 @@ def _link(
 
 
 def loop_links(session: Session, loop_id: UUID) -> tuple[list[OpenLoop], list[OpenLoop]]:
-    """(what this loop needs, what needs this loop), open or resolved."""
-    def loops(ids: list[UUID]) -> list[OpenLoop]:
-        return list(session.exec(select(OpenLoop).where(col(OpenLoop.id).in_(ids)).order_by(col(OpenLoop.created_at))).all())
-
-    deps = session.exec(select(Dependency).where(or_(Dependency.loop_id == loop_id, Dependency.needs_id == loop_id))).all()
-    return loops([d.needs_id for d in deps if d.loop_id == loop_id]), loops([d.loop_id for d in deps if d.needs_id == loop_id])
+    """(what this loop needs, what needs this loop), open or resolved. One query: each link with the loop at its other end."""
+    other_end = or_(and_(Dependency.loop_id == loop_id, OpenLoop.id == Dependency.needs_id),
+                    and_(Dependency.needs_id == loop_id, OpenLoop.id == Dependency.loop_id))
+    rows = session.exec(select(Dependency, OpenLoop).join(OpenLoop, other_end).order_by(col(OpenLoop.created_at))).all()
+    return [loop for d, loop in rows if d.loop_id == loop_id], [loop for d, loop in rows if d.needs_id == loop_id]
 
 
 def add_need(session: Session, loop_id: UUID, needs_id: UUID) -> None:
@@ -724,15 +723,19 @@ def track_check(session: Session, title: str, summary: str, next_action: str | N
 
 
 def get_loop(session: Session, loop_id: UUID) -> LoopDetail:
-    loop = _get(session, loop_id)
-    source = session.get(Source, loop.source_id)
+    """One query: each query is a round trip to the database, and the dashboard opens a loop with this."""
+    created = and_(Activity.loop_id == OpenLoop.id, Activity.action == ActivityAction.created)
+    row = session.exec(
+        select(OpenLoop, Source, Goal, Activity).where(OpenLoop.id == loop_id)
+        .outerjoin(Source, Source.id == OpenLoop.source_id).outerjoin(Goal, Goal.id == OpenLoop.goal_id)
+        .outerjoin(Activity, created)
+    ).first()
+    if row is None:
+        raise NotFound(f"Loop {loop_id} not found")
+    loop, source, goal, made = row
     if source is None:  # source_id is required; missing means a corrupt DB
         raise RuntimeError(f"Loop {loop_id} points to missing source {loop.source_id}")
-    goal = session.get(Goal, loop.goal_id) if loop.goal_id else None
-    created = session.exec(
-        select(Activity).where(Activity.loop_id == loop.id, Activity.action == ActivityAction.created)
-    ).first()
-    return LoopDetail(loop=loop, goal=goal, source=source, quote=created.quote if created else None)
+    return LoopDetail(loop=loop, goal=goal, source=source, quote=made.quote if made else None)
 
 
 # --- user actions (commit) ---
@@ -945,6 +948,13 @@ def list_activity(session: Session, loop_id: UUID | None = None) -> list[Activit
     if loop_id is not None:
         query = query.where(Activity.loop_id == loop_id)
     return list(session.exec(query).all())
+
+
+def get_sources(session: Session, ids: set[UUID]) -> dict[UUID, Source]:
+    """Many sources in one query (a history's messages)."""
+    if not ids:
+        return {}
+    return {s.id: s for s in session.exec(select(Source).where(col(Source.id).in_(ids))).all()}
 
 
 def undo_activity(session: Session, activity_id: UUID) -> OpenLoop:

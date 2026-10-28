@@ -136,9 +136,9 @@ def link_out(loop: OpenLoop) -> dict[str, Any]:
             "status": loop.status.value}
 
 
-def activity_out(session: Session, a: Activity) -> dict[str, Any]:
+def activity_out(a: Activity, sources: dict[UUID, Source]) -> dict[str, Any]:
     """`said`: the chat message behind the change, so the history shows why it happened."""
-    source = session.get(Source, a.source_id) if a.source_id else None
+    source = sources.get(a.source_id) if a.source_id else None
     said = source.text if source and source.kind == "chat" and source.text else None
     return {**a.model_dump(mode="json", exclude={"undo"}), "can_undo": a.undo is not None, "said": said}
 
@@ -385,7 +385,9 @@ def create_app(
 
     @app.get("/api/activity")
     def activity(loop_id: UUID | None = None, session: Session = Depends(get_session)) -> list[dict[str, Any]]:
-        return [activity_out(session, a) for a in eng.list_activity(session, loop_id)]
+        found = eng.list_activity(session, loop_id)
+        sources = eng.get_sources(session, {a.source_id for a in found if a.source_id})
+        return [activity_out(a, sources) for a in found]
 
     @app.post("/api/activity/{activity_id}/undo")
     def undo(activity_id: UUID, session: Session = Depends(get_session)) -> dict[str, Any]:

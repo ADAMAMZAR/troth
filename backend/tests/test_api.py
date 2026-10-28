@@ -5,11 +5,12 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
+from sqlalchemy import event
 from sqlmodel import Session
 
 from app import engine as eng
 from app.config import settings
-from app.db import create_db_engine
+from app.db import Activity, ActivityAction, ActivityBy, create_db_engine
 from app.hermes import HermesError, HermesReply
 from app.main import create_app
 from tests.conftest import FakeLLM
@@ -294,3 +295,26 @@ def test_link_routes(client: TestClient) -> None:
     assert client.delete(f"/api/loops/{portfolio['id']}/needs/{wait['id']}").status_code == 204
     assert client.get(f"/api/loops/{wait['id']}").json()["needed_by"] == []
     assert client.delete(f"/api/loops/{portfolio['id']}/needs/{wait['id']}").status_code == 404
+
+
+def test_opening_a_loop_takes_few_queries(client: TestClient, db_url: str) -> None:
+    """Each query is a round trip to the database: 0.2 s each on a deploy whose database was in another region.
+    The count stays the same however long the history is."""
+    wait, portfolio = seed(client)
+    client.put(f"/api/loops/{wait['id']}/needs/{portfolio['id']}")
+    with Session(create_db_engine(db_url)) as s:
+        for text in ("Sarah emailed me", "Sarah called"):
+            source = eng.add_source(s, text)
+            s.add(Activity(loop_id=UUID(wait["id"]), action=ActivityAction.updated, by=ActivityBy.chat, source_id=source.id))
+        s.commit()
+    queries: list[str] = []
+    event.listen(client.app.state.db, "before_cursor_execute", lambda *args: queries.append(args[2]))  # type: ignore[attr-defined]
+
+    detail = client.get(f"/api/loops/{wait['id']}").json()
+    assert (detail["source"]["text"], detail["goal_title"], detail["person_name"]) == (DEMO, "Secure NVIDIA internship", "Sarah")
+    assert [n["id"] for n in detail["needs"]] == [portfolio["id"]] and detail["needed_by"] == []
+    assert len(queries) == 4  # the loop with its source, goal and first words; its person; its links; its latest check
+    queries.clear()
+    history = client.get(f"/api/activity?loop_id={wait['id']}").json()
+    assert sorted(a["said"] for a in history if a["said"]) == [DEMO, "Sarah called", "Sarah emailed me"]
+    assert len(queries) == 2  # the history, then all its messages at once
