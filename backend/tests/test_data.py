@@ -1,4 +1,4 @@
-"""Settings: Export my data and Delete everything (troth_improvements.md §3.5)."""
+"""Settings: Export my data and Delete everything."""
 
 from pathlib import Path
 

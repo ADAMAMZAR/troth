@@ -14,5 +14,15 @@ backend/tests/scenarios/eval_sample/results/
 backend/tests/scenarios/eval_sample/failures.csv
 .gstack/
 frontend/node_modules/
-.impeccable/questions/
-.impeccable/review/
+data/tavily_cache/
+# Development notes and tool config: kept locally, not published
+.claude/
+.impeccable/
+AGENTS.md
+CLAUDE.md
+PRODUCT.md
+DESIGN.md
+devpost.md
+video_script.md
+troth_improvements.md
+backend/scripts/migrate_sqlite_to_postgres.py

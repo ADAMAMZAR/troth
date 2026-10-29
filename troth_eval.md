@@ -152,7 +152,7 @@ Emails and web pages that try to steer the model, in English and Malay. They use
 | `backend/tests/scenarios/eval_sample/` | A synthetic sample (a WhatsApp chat, two emails, scenarios A–F) with labels. Offline it checks the import end to end; it's also what the smoke run used |
 | `backend/app/llm.py` | Token counts |
 | `backend/pyproject.toml`, `tests/conftest.py`, `.gitignore` | `eval` marker, kept out of plain `pytest`; eval tests keep their keys; `backend/data/eval/` ignored |
-| `AGENTS.md`, `README.md` | Commands and rules (done); results table in `troth_improvements.md` §6 at the end |
+| `README.md` | Commands (done) |
 
 CI replays only test scenarios A–F and the injection items, never real data. That's a guard against rule regressions; the evaluation itself runs locally.
 
@@ -210,7 +210,7 @@ CI replays only test scenarios A–F and the injection items, never real data. T
   *Built 2026-10-20. On real data: loops (§15) and injection (§13). The message-check matrix waits for the labelled scam sheet.*
 - [x] Failures categorised; fixes by size; ablations done; removed rules listed with their numbers
   *Done 2026-10-20 (§15): three categories, two fixes, each scored alone on the tuning set (sender link, then both); no rule removed. Unfixed label disputes listed there.*
-- [x] Test scored after; before/after table in [troth_improvements.md](troth_improvements.md) §6
+- [x] Test scored after; before/after in §15
   *Done 2026-10-20: held-out emails fully right 19% → 52%, McNemar p = 0.016 (§15). The held-out split is now spent.*
 - [x] README's accuracy claims replaced by numbers from that table
   *Done 2026-10-20: README Limitations, "Extraction is an LLM's judgment".*

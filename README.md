@@ -8,11 +8,13 @@ Some messages ask you to act and aren't from who they claim: a "bank" asking you
 
 Built for the Nebius x NVIDIA Global AI Hackathon, **Personal AI** track. It runs on **NVIDIA Nemotron** through **Nebius Token Factory**, with **Hermes Agent** as the assistant you talk to. Everything here was built during the submission period: the first commit is 2026-09-29.
 
+**Try it:** https://troth-nebius-nvidia.duckdns.org is a shared demo with sample data, reset every night at 19:00 UTC (03:00 in Malaysia). Judges get the password with the submission.
+
 ## How it works
 
 Every loop goes through five steps:
 
-1. **Capture.** You tell it in the dashboard chat or on Telegram, paste a message into the dashboard (no Hermes needed), email arrives from someone you're waiting on, or you forward a message or a screenshot.
+1. **Capture.** You tell it in the dashboard chat or on Telegram, paste a message or a whole chat into the dashboard (no Hermes needed), email arrives from someone you're waiting on, or you forward a message or a screenshot.
 2. **Remember.** Goals, loops, people and the exact words each loop came from are saved in one SQLite file.
 3. **Check.** When a loop asks you to pay or share details, ScamGraph researches who's asking on the live web and fixed rules score the risk.
 4. **Remind.** **Needs attention** and the 8:00 Telegram briefing list what's overdue, due soon, stalled or risky.
@@ -32,7 +34,7 @@ Every loop goes through five steps:
 
 | The track asks for | Troth |
 |---|---|
-| Always on | Hermes runs the Telegram bot, the 8:00 briefing and the 10-minute email and web sync for as long as its gateway runs ([hermes/](backend/hermes/), [scripts/sync.py](backend/scripts/sync.py)) |
+| Always on | Hermes runs the Telegram bot, the 8:00 briefing and the 10-minute email and web sync for as long as its gateway runs ([hermes/](backend/hermes/), [scripts/sync.py](backend/scripts/sync.py)). Without Telegram, Troth runs the sync itself (`AUTO_SYNC_MINUTES`). The hosted demo runs all of it on a GCP VM. |
 | Private, your data under your control | One SQLite file on your machine; see [Your data](#your-data) |
 | Persistent memory | Goals, loops, people, the words each loop came from, history with undo, and every message check ([app/engine.py](backend/app/engine.py), [app/db.py](backend/app/db.py)). Hermes' own memory is off, so there's one source of truth. |
 | Reusable skills | Two Hermes skills ([hermes/skills/](backend/hermes/skills/)): `/check <message>` and `/briefing` on Telegram. The 8:00 cron job runs `briefing` too. |
@@ -71,7 +73,7 @@ Every loop goes through five steps:
 - **Email.** Give Troth someone's address (*"Sarah's email is sarah@nvidia.com"*) and it reads new mail from them every 10 minutes. A reply that answers your loop closes it, a new deadline becomes a task, and a meeting time becomes a calendar proposal. Mail from someone new (not newsletters or Gmail's Promotions, Social, Updates and Forums) only suggests a loop: **Add** keeps it and follows their replies, **Ignore** drops it. [Setup](#google-setup-optional).
 - **Web.** Say *"keep an eye on the hackathon results"* and Troth searches for it once a day with Tavily. Ask *"when does the Google STEP application close?"* and it looks it up, with the link. What the web says is only ever a proposal.
 - **Your yes first.** Calendar events, Gmail drafts (*"draft a thank-you reply to Sarah"*) and web findings wait under **Waiting for your yes**, or on Telegram, until you approve. Nothing is ever sent. If one fails (say Google was disconnected), it stays there with **Try again**.
-- **Edit.** Fix a loop's title, kind, person, date or next action from its panel. The old values stay in History, with Undo.
+- **Edit.** Fix a loop's title, kind, person, date or next action from its panel, or in chat (*"rename the charger one to Return Aina's laptop charger"*). The old values stay in History, with Undo.
 - **Undo.** Each loop's History shows what changed it (you, chat, email or the web) and the words behind it, with Undo on automatic changes.
 - **Only what was written.** Each loop and change keeps the words that state it, checked to really be in your message or the email. An email change Troth can't quote from the email isn't made. Emails and web pages reach the model marked as someone else's words, never instructions.
 
@@ -160,7 +162,7 @@ The code uses Troth's working name, `continuum`: the Hermes profile, the DB file
 
 The Python app lives in `backend/` and the UI in `frontend/`. Run every command below from `backend/` unless it says otherwise.
 
-Needs **Python 3.11+**, **[Hermes Agent](https://hermes-agent.nousresearch.com)** (tested with 0.21) on your PATH, and a **Nebius API key**.
+Needs **Python 3.11+**, **[Hermes Agent](https://hermes-agent.nousresearch.com)** (tested with 0.21 and 0.22) on your PATH, and a **Nebius API key**.
 
 **macOS / Linux**
 
@@ -321,7 +323,7 @@ pytest            # offline: LLM and Hermes are mocked
 pytest -m live    # real Nemotron + Hermes + Tavily (needs keys and both servers running)
 ```
 
-`pytest -m live -k scam_live` runs ScamGraph's five test scenarios (`tests/scenarios/`, all labelled test samples) with real Nemotron and Tavily, about 10 Tavily credits each: a company on Bank Negara's alert list, a clone of a real company, a real bank, a job offer with no name, and a mix of reliable and unreliable sources. Its last test asks Hermes; start Troth on a scratch `DATABASE_URL` for that.
+`pytest -m live -k scam_live` runs ScamGraph's six test scenarios (`tests/scenarios/`, all labelled test samples) with real Nemotron and Tavily, about 10 Tavily credits each: a company on Bank Negara's alert list, a clone of a real company, a real bank, a job offer with no name, a mix of reliable and unreliable sources, and a room rental paid into a personal bank account. It also reads a screenshot. Its last test asks Hermes; start Troth on a scratch `DATABASE_URL` for that.
 
 The live suite runs the acceptance inputs against real Nemotron, e.g. "Alex said he'll send me the dataset tomorrow" (a waiting loop due tomorrow), "The weather was nice today" (nothing saved), the same message twice (one loop), and "Alex sent the dataset" (loop resolved).
 
@@ -347,6 +349,7 @@ The live suite runs the acceptance inputs against real Nemotron, e.g. "Alex said
 - **Dedup is exact-match** on normalized title + person, plus giving the model the existing loops. Reworded duplicates can slip through.
 - **Hermes' standalone gateway** (`gateway.standalone: true`) is a shim Hermes marks as temporary. `hermes/config.example.yaml` describes the fallback.
 - Goals are marked done from the dashboard only, not by chat.
+- **No timed reminders.** Troth can't message you at a set time. Ask for "remind me Monday at 8am" and it proposes a calendar event instead, so the calendar reminds you.
 - **Replies take time**, because Nemotron reasons before it answers. Measured 2026-10-26 on 3 Super: a question takes 2–5 s, saving a message 10–20 s (most of it one extraction call, about 85% of whose output is reasoning), a message check 1–2 minutes. On 3.5 Super VL that extraction call takes 6–9 s.
 - **Keep the database next to the server.** Every query is a round trip. With the VM in Iowa and Neon in Singapore that was 0.21 s, so the dashboard's loop list took 5 s and opening a loop 2–4 s; on a SQLite file on the VM they take 9 ms and 8 ms (measured on the VM, 2026-10-28). The VM is an e2-micro (1 GB) and swaps, so the 8:00 briefing has taken up to 3.6 minutes; use e2-small or larger.
 - Run on your own computer, Telegram and the daily briefing only work while it's on. The [GCP deploy](#deploy-to-gcp-compute-engine) keeps them running.
