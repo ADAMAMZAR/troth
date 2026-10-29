@@ -1,4 +1,4 @@
-"""Loops that need other loops first, and the "at risk" rules (troth_improvements.md). LLM is faked.
+"""Loops that need other loops first, and the "at risk" rules. LLM is faked.
 
 Today is Tue 2026-09-29 (conftest.NOW): Thu = Oct 1, Fri = Oct 2.
 """

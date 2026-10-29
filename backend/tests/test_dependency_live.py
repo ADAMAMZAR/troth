@@ -1,4 +1,4 @@
-"""Links between loops against real Nemotron (troth_improvements.md §2 and §6). Run: pytest -m live -k dependency
+"""Links between loops against real Nemotron. Run: pytest -m live -k dependency
 
 Today is Tue 2026-09-29 (conftest.NOW): Thu = Oct 1, Fri = Oct 2.
 Measured 2026-10-19 with the final prompt (extraction only, 8 runs each): "…writing my reference letter for it" linked
