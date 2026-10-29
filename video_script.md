@@ -1,85 +1,119 @@
 # Troth demo video script (3:00)
 
-Each scene: the page or app to open (heading), what to do, what to say.
+Each step: what to do, then what to say while you do it.
 The chat message in Scene 2 was tested twice against the real model (2026-10-26): both times a promise to Aiman due Thursday, a "waiting on Nadia" loop, and the link between them.
 
 ## Before you record
 
-- **Timing:** record after the **03:00 nightly reset** (Malaysia time), so the demo starts fresh.
-- **Browser:** log in at https://troth-nebius-nvidia.duckdns.org with any username and the `APP_PASSWORD`. Set zoom to 110–125% and close other tabs.
-- **Tabs to have ready:**
-  - the README architecture: https://github.com/ADAMAMZAR/troth#architecture
-  - your Nebius Token Factory console, on its usage page
-- **Phone:** open the Telegram chat with the bot and send `/new` before recording.
-- **Takes:** record Scenes 2 and 5 a few times. Live AI varies: about 1 run in 5 drops a person, and the official domain is found about 2 runs in 3. Never edit data by hand.
-- **Waits:** cut them in editing. Saving takes 15–20 s; the check takes 1–2 min.
+1. Record after the 03:00 nightly reset (Malaysia time), so the demo starts fresh.
+2. Log in at https://troth-nebius-nvidia.duckdns.org with any username and the `APP_PASSWORD`.
+3. Set browser zoom to 110–125%. Close other tabs.
+4. Open two tabs: the README architecture (https://github.com/ADAMAMZAR/troth#architecture) and the Nebius Token Factory usage page.
+5. On your phone, open the Telegram chat with the bot and send `/new`.
+6. The day before, run the Scene 5 message once on the demo (the 03:00 reset clears it). It hasn't been tested against the real model yet. Use it only if it finds maybank2u.com.my and scores HIGH or above.
+7. Record Scenes 2 and 5 a few times. Live AI varies: about 1 run in 5 drops a person. Never edit data by hand.
+8. Cut the waits in editing. Saving takes 15–20 s; the check takes 1–2 min.
 
 ---
 
-## Scene 1 · 0:00–0:15 · Browser: Troth dashboard
+## Scene 1 · 0:00–0:15 · Troth dashboard
 
-**Do:** Start on the dashboard. Let the top bar show **"… need you today"**, then move the mouse slowly down **Needs attention**.
+1. **Do:** Start on the dashboard. The top bar shows "… need you today".
 
-**Say:** "This is Troth, a personal AI for the things that slip: the promise you made, the reply you're waiting on, and the message pretending to be someone you trust. It remembers what's unfinished and warns you before it slips."
+   **Say:** "This is Troth, a personal AI for the things that slip: the promise you made, the reply you're waiting on, and the message pretending to be someone you trust."
 
-## Scene 2 · 0:15–0:50 · Browser: Troth dashboard → Chat panel
+2. **Do:** Move the mouse slowly down Needs attention.
 
-**Do:**
-1. Click the chat box (**"Type a message…"**) and type:
-   `I told Aiman I'd send him the hackathon slides by Thursday, but I can only finish them once Nadia sends me the demo video.`
-   Press **Enter**. Cut the wait.
-2. Point at the reply, then at the new loops highlighted under **Open loops**.
-3. Click **Send hackathon slides**. Show **Why Troth knows this** (your exact words) and **What it depends on** (Nadia's video).
+   **Say:** "It remembers what's unfinished and warns you before it slips."
 
-**Say:** "I just talk to it. Hermes Agent hands my words to Troth, and NVIDIA Nemotron on Nebius Token Factory pulls out the loops: a promise to Aiman due Thursday, something I'm waiting on from Nadia, and the link between them. Every loop keeps the exact words it came from, so I can always see why Troth knows it."
+## Scene 2 · 0:15–0:50 · Troth dashboard, chat panel
 
-## Scene 3 · 0:50–1:20 · Browser: Troth dashboard → Needs attention
+1. **Do:** Click the chat box. Type the message below. Press Enter. Cut the wait.
 
-**Do:**
-1. Point at **Send NVIDIA application**: *at risk: "Get reference letter from Dr. Lim" is due …, after this*, with its three options.
-2. Click that loop under **Open loops**. Show **What it depends on**.
-3. Scroll to **History** and point at the line where **Dr. Lim's email** moved the letter's date.
-
-**Say:** "Here's what reminders can't do. I promised Sarah my NVIDIA application, and it needs Dr. Lim's reference letter. His email just moved the letter past my deadline. Troth caught it. Plain rules in code, not the model, flag the promise as at risk and work out my options: ask Dr. Lim, tell Sarah early, or move my date, before I let anyone down."
-
-## Scene 4 · 1:20–1:35 · Browser: Troth dashboard → Waiting for your yes
-
-**Do:** Point at the **Mahsuri Labs** online-assessment suggestion, then click **Add**.
-
-**Say:** "Email from someone new never changes anything on its own. It waits for my yes. And Troth never sends anything: drafts and calendar events wait for my OK too."
-
-## Scene 5 · 1:35–2:15 · Browser: Check a message (button at the top right)
-
-**Do:**
-1. Click **Check a message**. In **Paste what they sent you**, paste this, keeping the TEST SAMPLE line visible:
    ```
-   TEST SAMPLE for ScamGraph scenario B (clone company). Not a real message.
-
-   Dear investor, this is T. Rowe Price Group Sdn. Bhd., the Malaysian branch of T. Rowe Price. Our new fund pays a fixed 12% monthly return, approved by the Securities Commission. Register at troweprice-my-invest.com and transfer your deposit to our Malaysian account before Friday. Contact our advisor at +60 12-000 5678.
+   I told Aiman I'd send him the hackathon slides by Thursday, but I can only finish them once Nadia sends me the demo video.
    ```
-2. Click **Check**. Briefly show **How the check went** as the steps tick, then cut the wait.
-3. On the result:
-   - Show the risk level and **Fixed rules set the risk level**.
-   - Tap the **Bank Negara** point in the **Evidence graph** so its evidence opens below.
-   - Point at a source link under **Claims and evidence**.
-   - If this take didn't find the real domain (troweprice.com), record it again.
 
-**Say:** "Some messages aren't who they claim to be. This is a test sample of a clone investment firm. Troth researches who's asking on the live web with Tavily, and Nemotron reads what it finds. The risk level comes from fixed rules, never from the model, and every finding links to its source: here, Bank Negara's alert list and the company's real website."
+   **Say:** "I just talk to it."
 
-## Scene 6 · 2:15–2:35 · Phone: Telegram, chat with your Troth bot (optional)
+2. **Do:** Point at the reply. Then point at the new loops under Open loops.
 
-**Do:** Hold the phone next to the screen. Send `/briefing` and show the reply, with the risky payment first. If you skip this scene, give the 20 seconds to Scene 5.
+   **Say:** "Hermes Agent hands my words to Troth, and NVIDIA Nemotron on Nebius Token Factory pulls out the loops: a promise to Aiman due Thursday, something I'm waiting on from Nadia, and the link between them."
 
-**Say:** "It's the same memory on my phone. Every morning at eight, Troth sends my briefing on Telegram: the risky payment first, then what's due today."
+3. **Do:** Click "Send hackathon slides". Point at "Why Troth knows this", then "What it depends on".
 
-## Scene 7 · 2:35–2:55 · Browser: GitHub README Architecture, then Nebius Token Factory console
+   **Say:** "Every loop keeps the exact words it came from, so I can always see why Troth knows it."
 
-**Do:** Show the architecture diagram for about 10 s, then the Token Factory usage page for 2–3 s, so the Nemotron requests are visible.
+## Scene 3 · 0:50–1:20 · Troth dashboard, Needs attention
 
-**Say:** "Under the hood, Hermes Agent is the assistant, calling Troth through 18 MCP tools. Every model call is NVIDIA Nemotron on Nebius Token Factory: Nemotron 3.5 Super VL for the agent, the extraction and screenshots, and Nemotron 3 Super for the scam research, where it measured faster. Tavily brings the evidence."
+1. **Do:** Point at "Send NVIDIA application" in Needs attention (marked at risk).
 
-## Scene 8 · 2:55–3:00 · Browser: Troth dashboard
+   **Say:** "Here's what reminders can't do. I promised Sarah my NVIDIA application, and it needs Dr. Lim's reference letter."
 
-**Do:** Return to the dashboard and hold for 3 seconds.
+2. **Do:** Click that loop under Open loops. Scroll to History. Point at the line where Dr. Lim's email moved the date.
 
-**Say:** "Troth: nothing you owe slips through. Try it at troth-nebius-nvidia dot duckdns dot org."
+   **Say:** "His email just moved the letter past my deadline. Troth caught it."
+
+3. **Do:** Scroll back up to Needs attention. Point at the Options line.
+
+   **Say:** "Plain rules in code, not the model, flag the promise as at risk and work out my options: ask Dr. Lim, tell Sarah early, or move my date, before I let anyone down."
+
+## Scene 4 · 1:20–1:35 · Troth dashboard, Waiting for your yes
+
+1. **Do:** Point at the Mahsuri Labs suggestion.
+
+   **Say:** "Email from someone new never changes anything on its own. It waits for my yes."
+
+2. **Do:** Click Add.
+
+   **Say:** "And Troth never sends anything: drafts and calendar events wait for my OK too."
+
+## Scene 5 · 1:35–2:15 · Check a message
+
+1. **Do:** Click "Check a message" (top right). Paste the message below. Keep the TEST SAMPLE line visible.
+
+   ```
+   TEST SAMPLE (fake bank warning). Not a real message.
+
+   Maybank: Your account will be frozen today at 11:59 PM because your eKYC is incomplete. Verify now at maybank2u-secure-my.com to keep using Maybank2u. Need help? Call 03-0000 1234.
+   ```
+
+   **Say:** "Some messages look exactly like the real thing. This is a test sample of a fake bank warning: a threat, a deadline, a link."
+
+2. **Do:** Click Check. Show the steps ticking. Cut the wait.
+
+   **Say:** "Troth researches who's asking on the live web with Tavily, and Nemotron reads what it finds."
+
+3. **Do:** Point at the risk level and "Fixed rules set the risk level".
+
+   **Say:** "The risk level comes from fixed rules, never from the model,"
+
+4. **Do:** Click the Maybank point in the Evidence graph. Point at the official site under Claims and evidence.
+
+   **Say:** "and every finding links to its source: here, Maybank's real site, maybank2u.com.my, not the link in the message."
+
+If the take didn't find the real site (maybank2u.com.my), record it again.
+
+## Scene 6 · 2:15–2:35 · Phone, Telegram (optional)
+
+Skip it? Give the 20 seconds to Scene 5.
+
+1. **Do:** Hold the phone next to the screen. Send `/briefing`. Show the reply.
+
+   **Say:** "It's the same memory on my phone. Every morning at eight, Troth sends my briefing on Telegram: the risky payment first, then what's due today."
+
+## Scene 7 · 2:35–2:55 · README, then Token Factory
+
+1. **Do:** Open the README tab. Show the architecture diagram.
+
+   **Say:** "Under the hood, Hermes Agent is the assistant, calling Troth through 18 MCP tools. Every model call is NVIDIA Nemotron on Nebius Token Factory:"
+
+2. **Do:** Open the Token Factory tab. Show the Nemotron requests.
+
+   **Say:** "Nemotron 3.5 Super VL for the agent, the extraction and screenshots, and Nemotron 3 Super for the scam research, where it measured faster. Tavily brings the evidence."
+
+## Scene 8 · 2:55–3:00 · Troth dashboard
+
+1. **Do:** Open the Troth tab. Hold for 3 seconds.
+
+   **Say:** "Troth: nothing you owe slips through. Try it at troth-nebius-nvidia dot duckdns dot org."
